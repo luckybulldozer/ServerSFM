@@ -1,0 +1,262 @@
+# notes...
+
+# need to....
+
+
+# add tar of sifts back and forth... although it doesn't seem like a big thing, it would speed up the start up.
+
+
+# load balancing on the matches,
+
+
+# do we break up the matches into say 100 groups, then send out as jobs.
+
+#lets also us the gui version of VSFM to get this done too!
+
+
+# write the pmvs engine first, this could be the prototype for the match groups + the tar and untar process.
+
+
+breakdown of how to get into the pmvs balancing section.
+
+
+all matches are back, 
+
+we do a VisualSFM sfm+nomatch+cmvs . ${PWD%.*}.nvm
+
+ #menu_33045	Load NView Match
+ #menu_33229	Less Visualization Data
+ #menu_33041	Reconstruct Sparse
+ #menu_33471	Reconstruct Dense (seems no CMVS option here!)
+
+
+get the clusters from CMVS,
+
+would be nice if I could work out the minimum cluster size via finding out if it get into a loop... somehow...
+
+
+option-jobs are sent out with custom CPU parameters per server,
+tar all images up, send each server a complete 00/ (if we were fancy, we could only send the images needed for each cluster)
+
+when job is done, the model is tar'gz'ed up and sent home
+
+
+when the option-jobs come back, we send out new jobs to that available server.
+
+once all jobs are back... 
+
+move on to next model to make 
+
+mergeply on all models
+
+
+
+
+
+
+
+
+#!/bin/sh
+
+#
+
+ 			#### pmvs Render server begins here...
+ 			###
+ 			### how to do it, we need a job sender/listener .. we have a listener on the render-node side,
+ 			### repurpose this for control-node to send out jobs, when we know the render-nodes are available
+ 			
+ 	
+ 	
+ # control-node
+ 
+ 
+ # get our variables from...
+ source ~/sfm/server_sfm/server-sfm.lib
+ 
+initVars
+ 
+ # runs a while loop that sends out jobs to servers...		
+# in the same way that the listener nodes works, however I want better stats back as to what servers are online, and what they are doing...
+
+
+
+
+
+
+
+
+# this is info that each job has to send back really...
+# jobs monitor... maybe this is an entirely different thread?/script
+
+#  server name  | benchmark speed |     job          |  percent complete  |    ETA  |
+#------------------------------------------------------------------------------------	
+#   nz7-10500   |       4.2       | pmvs option-0020 |**20%***************|03:20:00 | 
+#       16      |        17       |       17         |         20         |    10   |       
+#column ^^ width 
+
+# first thing... jobs server...
+
+CONTROL_PATH=""
+CONTROL_JOBS_SETUP_DIR=""
+CONTROL_JOBS_PENDING_DIR=""
+CONTROL_JOBS_CUED_DIR=""
+CONTORL_JOBS_COMPLETED_DIR=""
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Set the following to 1 to make the viewer using dark background
+#ui_dark_background 0
+
+# Set the following to 1 to make the log viewer detached in the beginning.
+#ui_logviewer_detached 0
+
+# Set the expected size of the drawing area. (not guaranteed)
+#ui_view_dimension 800 600
+
+# Set 1 to use perspective viewport by default.
+#ui_perspective_view 0
+
+# Modify the menu strings (for translation purpose) 
+#menu_file	_File
+    #menu_33166	Open+ Multi Images
+    #menu_33028	Open+ Image &  SIFT
+    #menu_33186	Open Current Path
+    #menu_32928	Detect Features
+    #menu_33167	Load Feature File
+    #menu_32841	New  _Window
+    #menu_105	_Close Window
+    #menu_32842	_Exit Program
+#menu_sfm	_SfM
+    #menu_sfm_twoview	Two-View Match
+        #menu_33046	Two-View Update
+        #menu_33018	Feature Match
+        #menu_33023	F-Matrix Match
+        #menu_33277	Guided Match
+        #menu_33059	H-Matrix Match
+        #menu_33057	Save Inlier Match
+        #menu_33021	Load Inlier Match
+        #menu_33239	Discard Inlier Match
+        #menu_33282	Save as NV Match
+        #menu_33296	Mutual Best Match
+        #menu_33298	Use Small Features
+        #menu_33499	No Stationary Points
+    #menu_sfm_pairwise	Pairwise Matching
+        #menu_33033	Compute Missing Match
+        #menu_33487	Compute Specified Match
+        #menu_33498	Compute Sequence Match
+        #menu_33043	Compute Missing F-Matrix
+        #menu_33220	Update Pairwise F-Matrix
+        #menu_33507	Use Preemptive Matching
+        #menu_33191	Multi-threaded Match
+        #menu_33477	Asynchronous Write
+        #menu_33228	Use Filetitle as Identifier
+        #menu_33486	Import Feature Matches
+        #menu_33473	Export Feature Matches
+        #menu_33503	Export F-Matrix Matches
+        #menu_34000	Show Spanning Forest
+        #menu_33268	Show Match Matrix
+    #menu_33041	Reconstruct Sparse
+    #menu_33065	Reconstruct Resume
+    #menu_33471	Reconstruct Dense
+    #menu_sfm_more	More Functions
+        #menu_33152	Reload All Settings
+        #menu_33212	Start New Model
+        #menu_33184	Set Initialization Pair
+        #menu_33299	Set Fixed Calibration
+        #menu_33061	Bundle Adjustment
+        #menu_33523	Reconstruct Mesh
+        #menu_33489	GCP-based Transform
+        #menu_33500	GPS-based Transform
+        #menu_33066	Find More Points
+        #menu_33531	Run Constrained BA
+        #menu_33367	Update Point Color
+        #menu_33405	Update Thumbnails
+        #menu_33508	Use Shared Calibration
+        #menu_33210	Search Multiple Models
+        #menu_33185	Use Radial Distortion
+        #menu_33201	Filter Unstable Points
+        #menu_33229	Less Visualization Data
+        #menu_33519	Use Level 0 for PMVS
+    #menu_33045	Load NView Match
+    #menu_33202	Add  NView Match
+    #menu_33044	Save NView Match
+    #menu_33047	Clear Workspace
+    #menu_sfm_extra	Extra Functions
+        #menu_33225	Model Information
+        #menu_33200	Save Compact NVM
+        #menu_33223	Save Selected Model
+        #menu_33226	Save Separate Models
+        #menu_33048	Delete Current Photo
+        #menu_33198	Delete Reconstructed
+        #menu_33355	Delete Not-in-NVM
+    #menu_33074	Delete Selected Camera
+    #menu_33216	Delete Selected Model
+    #menu_33237	Delete All Models
+#menu_view	_View
+    #menu_32777	Single Image
+    #menu_33019	Feature Matches
+    #menu_33007	Inlier Matches
+    #menu_33005	2-View 3D Points
+    #menu_33037	N-View 3D Points
+    #menu_33467	Dense 3D Points
+    #menu_33190	Image Thumbnails
+    #menu_33530	Perspective View
+    #menu_33451	Dark Background
+    #menu_33218	Show Single Model
+    #menu_33034	Show 2View Tracks
+    #menu_view_options	More Options
+        #menu_33077	Switch 2D <-> 3D
+        #menu_33070	Show 3+  Points
+        #menu_33042	Textured Camera
+        #menu_33012	Show Bounding Box
+        #menu_33505	Downward 3D Y-axis
+        #menu_32922	Show Features
+        #menu_33234	Tight Thumbnails
+        #menu_33025	Show Rand Match
+        #menu_33344	Horizontal Layout
+        #menu_33246	Align Two Images
+    #menu_33078	Hilight Image
+    #menu_33038	Hilight Matcher
+    #menu_33032	Next Photo/Pair
+    #menu_33049	Prev Photo/Pair
+#menu_tools	_Tools
+    #menu_tools_gpu	Enable GPU
+        #menu_33182	Disable SiftGPU
+        #menu_33172	Standard Param
+        #menu_33180	Customized Param
+        #menu_33372	Remote SiftGPU
+        #menu_33307	Set Maximum DIM
+        #menu_33517	Cap Memory Usage
+        #menu_33393	Get Rectangle SIFT
+        #menu_33275	Match using GLSL
+        #menu_33478	Match using CUDA
+        #menu_33373	Set Maximum SIFT
+        #menu_33460	Prefer GPU-PBA
+        #menu_33494	Reserve Memory
+    #menu_33119	Refresh GL Windows
+    #menu_33159	Feature Display Size
+    #menu_33153	Feature Display Style
+    #menu_33244	Randomize Colors
+    #menu_33203	Use Lower Priority
+    #menu_32978	Quit Running Task
+    #menu_125	_Copy Current View
+    #menu_120	_Save Current View
+    #menu_33441	_Lock Current View
+    #menu_32940	Show Log Window
+    #menu_33108	Thumbnail Viewer
+    #menu_33465	Window on Top
+#menu_help	_Help
+    #menu_33476	Online Documentation
+    #menu_33502	Online Discussions
+    #menu_33484	License &  Readme
+    #menu_104	_About VisualSFM

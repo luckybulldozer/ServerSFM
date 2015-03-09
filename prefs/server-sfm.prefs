@@ -1,0 +1,18 @@
+#Keep these first two lines free of prefs.
+#ssfmInstallDir
+/Users/dmonaghan/ServerSFM
+#username
+dmonaghan
+#serverWorkDir
+/Users/dmonaghan/ServerSFM
+#mainHost
+dan.local.local
+#sshKey
+/Users/dmonaghan/.ssh/serverSFM
+#testPref
+undefinedTest
+#clientNames
+dan.local,dan17.local
+#clientWorkDir
+/Users/dmonaghan/ServerSFM/jobs/client/
+

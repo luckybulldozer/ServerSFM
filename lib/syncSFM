@@ -1,0 +1,10 @@
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/launch_sh_server.sh dmonaghan@nz7-10500.nz.local:~/sfm/server_sfm/launch_sh_server.sh
+
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/launch_sh_server.sh dmonaghan@nz7-10432.nz.local:~/sfm/server_sfm/launch_sh_server.sh
+
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/server-sfm.lib dmonaghan@nz7-10432.nz.local:~/sfm/server_sfm/server-sfm.lib
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/server-sfm.lib dmonaghan@nz7-10500.nz.local:~/sfm/server_sfm/server-sfm.lib
+
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/server-sfm.sh dmonaghan@nz7-10432.nz.local:~/sfm/server_sfm/server-sfm.sh
+
+scp -i ~/.ssh/sfm.pem ~/sfm/server_sfm/server-sfm.sh dmonaghan@nz7-10500.nz.local:~/sfm/server_sfm/server-sfm.sh
