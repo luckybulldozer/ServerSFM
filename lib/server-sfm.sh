@@ -37,7 +37,9 @@ echo "end here?"
 #read ab
 #read av
 
-initRemoteServers
+
+#removing for latest version
+#initRemoteServers
 
 #50
 copyImagesToRealServers
@@ -94,7 +96,7 @@ startLocalSFM
 
 copyCMVSDirToServers
 
-clearAllJobs
+#clearAllJobs
 
 determinePMVS_JOBS
 

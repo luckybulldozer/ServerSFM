@@ -158,11 +158,14 @@ editPrefs clientWorkDir $CLIENT_WORKDIR
 
 
 echo "Copying folder structure to remote clients"
-find $SERVER_WORKDIR -type d 
-find $SERVER_WORKDIR -type d > $SERVER_WORKDIR/lib/folderStructure.tmp
+find $SERVER_WORKDIR -not -path '*/\.*' 
+find $SERVER_WORKDIR -not -path '*/\.*' -type d > $SERVER_WORKDIR/lib/folderStructure.tmp
+
 read nothing
 
 echoGood "Setting up work directories on clients." 
+
+#this could be a bit messy if we install custom dir name in the /jobs section.
 
 clientListPrefs=`readPrefs clientNames`
 for i in `echo $clientListPrefs` ; 
@@ -176,6 +179,9 @@ for i in `echo $clientListPrefs` ;
 				for j in `cat $SERVER_WORKDIR/lib/folderStructure.tmp` ; 
 					do  ssh -i $SSH_KEY $USER_NAME@$i "mkdir $j"
 				done
+			
+			scp -r -i $SSH_KEY $SERVER_WORKDIR/lib/* $USER_NAME@$i:$SERVER_WORKDIR/lib
+			scp -r -i $SSH_KEY $SERVER_WORKDIR/prefs/* $USER_NAME@$i:$SERVER_WORKDIR/prefs	
 
 		fi 
 done

@@ -82,5 +82,25 @@ function expand_tilde()
 }
 
 
+#############################
+### array functions
 
+function remove {
+  if [[ $1 =~ ([[:digit:]])(-([[:digit:]]))?   ]]; then
+    from=${BASH_REMATCH[1]}
+    to=${BASH_REMATCH[3]}
+  else
+    echo bad range
+  fi;shift
+  array=( ${@} )
+  local start=${array[@]::${from}}
+  local rest
+  [ -n "$to" ] && rest=${array[@]:((${to}+1))}  || rest=${array[@]:((${from}+1))}
+  echo ${start[@]} ${rest[@]}
+
+## ussage
+##yourArray=( `remove 2 ${yourArray[*]}` )
+##echo ${yourArry[@]}
+
+}
 

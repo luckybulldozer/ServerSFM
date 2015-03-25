@@ -45,25 +45,21 @@ IMG_LOG_DIR=$(readPrefs serverWorkDir)"/imglogdir"
 #where .matchtmp.txt is kept
 MATCH_LIST_DIR=$IMG_LOG_DIR/matches
 
-#Location of Jobs Cues on Clients
-JOBS_SET=$(readPrefs serverWorkDir)"/jobs/server/set"
-JOBS_DONE=$(readPrefs serverWorkDir)"/jobs/server/done"
 
-#Host Idle Directory
-IDLE_DIR=$(readPrefs serverWorkDir)"/jobs/server/hosts/idle"
 
 #where the server lists clients                                  ## set to idle eventually
-SERVER_CLIENTS_LIST_DIR=$(readPrefs serverWorkDir)"/server/clients/have_launched"
+SERVER_CLIENTS_LIST_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
 SERVERS_CLIENT_LIST=$SERVER_WORKDIR"/jobs/server/clients/clientlist.txt"
 
 #Directory on Clients where the images are worked on.
 CLIENT_WORKDIR=$(readPrefs clientWorkDir)
-
+CLIENT_IMAGE_DIR=$CLIENT_WORKDIR/task_processing/
+HOSTS_ONLINE=$SERVER_WORKDIR/jobs/server/clients/idle/
 
 ## RUNTIME VARIABLES (not part of preferences)
 
 # This is the main machine the script is executed on.
-MASTER_SERVER=$(hostname).local
+MASTER_SERVER=$(hostname)
 
 #directory where script is executed (should only contain images!)
 #!#change to IMAGE_DIR
@@ -71,10 +67,34 @@ SOURCE_IMAGE_DIR=$PWD
 
 #vsfm project name
 #!#change to ${IMAGE_DIR}.nvm
-PROJECT_NAME=${SOURCE_IMG_DIR##*/}.nvm
+PROJECT_NAME=${SOURCE_IMAGE_DIR##*/}.nvm
 
 #cmvs directory
 CMVS_NAME=$PROJECT_NAME.cmvs
+
+
+#vars used for client launch scripts
+#Location of Jobs Cues on Clients
+JOBS_SET=$(readPrefs serverWorkDir)"/jobs/server/set"
+JOBS_DONE=$(readPrefs serverWorkDir)"/jobs/server/done"
+
+#Host Idle Directory
+IDLE_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/idle"
+BUSY_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/busy"
+
+#same as SERVER_CLIENTS_LIST_DIR... better name though?
+HAVE_LAUNCHED_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
+
+RENDER_SERVER=$SERVER_WORKDIR"/jobs/client/"
+JOBS_PENDING=$RENDER_SERVER"/pending/"
+JOBS_PROCESSING=$RENDER_SERVER"/processing/"
+JOBS_COMPLETE=$RENDER_SERVER"/complete/"
+JOBS_FAILED=$RENDER_SERVER"/failed/"
+
+JOBS_SETUP=$RENDER_SERVER/setup/
+JOBS_CUED=$RENDER_SERVER/cued/
+JOB_LOCATION=$RENDER_SERVER/task_processing/
+OUTPUT_FOLDER=$RENDER_SERVER/completed/
 
 TEST_PREF=$(readPrefs testPref)
 }
@@ -86,10 +106,13 @@ echo "SSFM_INSTALL_DIR: $SSFM_INSTALL_DIR"
 echo "IMG_LOG_DIR: $IMG_LOG_DIR"
 echo "CLIENT_LIST_DIR: $CLIENT_LIST_DIR"
 echo "SERVER_WORKDIR: $SERVER_WORKDIR"
-echo "CLIENT_WORKDIR: $CLIENT_WORKDIR"
+echo "CLIENT_IMAGE_DIR: $CLIENT_IMAGE_DIR"
 echo "TEST_PREF: $TEST_PREF"
 echo "JOBS_DONE: $JOBS_DONE"
 echo "JOBS_SET: $JOBS_DONE"
+echo "PROJECT_NAME: $PROJECT_NAME"
+echo "CMVS_NAME: $CMVS_NAME"
+read nothing
 }
 
 
@@ -98,17 +121,16 @@ initVars_sh_server () {
 #this should just be part of the above... as the host is also a client of itself, plus not sure it just gets executed by the host anyway!
 
 RENDER_SERVER=$SERVER_WORKDIR/jobs/client/
-#RENDER_SERVER=$SFM_INSTALL_DIR/
-
-#RENDER_SERVER="$HOME/sfm/RENDER_SERVER"
-#JOBS_PENDING=$RENDER_SERVER/JOBS_PENDING/
 JOBS_PENDING=$RENDER_SERVER/pending/
+
 }
 
 initRm () {
-# should build in yell, plus page this out to more.
+
 echo ""
 echo "About to rm all the stuff in $SOURCE_IMAGE_DIR execept the JPGS of course... hit ENTER or CTRL-C to fail"
+
+#once working should take a lot more general approach
 
 rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists $IDLE_DIR/*
 
@@ -122,7 +144,7 @@ read nothing_again
 initDirs () {
 #replaced by just copying our main dir?
 mkdir -pv $SERVER_WORKDIR/iplog $SERVER_WORKDIR/imglogdir/matches $SOURCE_IMAGE_DIR/siftlists 
-:
+
 }
 
 #not sure about this...
@@ -139,14 +161,14 @@ getImgList () {
 ls -1 *.[jJ][Pp][Gg] > $IMG_LOG_DIR/img_list.txt
 IMAGES=`wc -l $IMG_LOG_DIR/img_list.txt | awk '{print$1}'`
 NUMBER_OF_IMAGES=$IMAGES
-echo $IMAGES
+echo $IMAGESJOBS_CUE
 }
 
 
 assignClientRange () {
 # this needs to read from our list @ $SERVER_WORKDIR/jobs/server/clients/clientlist.txt
 
-#rm -fr $CLIENT_LIST_DIR/serverlist.txt
+#rm -fr $SERVERS_CLIENT_LIST
 echo "Server List is: `cat $SERVER_WORKDIR/jobs/server/clients/clientlist.txt`"
 NUMBER_OF_SERVERS=$(wc -l $SERVER_WORKDIR/jobs/server/clients/clientlist.txt | awk {'print $1'})
 
@@ -156,7 +178,7 @@ NUMBER_OF_SERVERS=$(wc -l $SERVER_WORKDIR/jobs/server/clients/clientlist.txt | a
 
 clientInit () {
 
-SERV_PLAN=`cat $SERVER_WORKDIR/jobs/server/clients/clientlist.txt | wc -l`
+SERV_PLAN=`cat $SERVERS_CLIENT_LIST | wc -l`
 SERV_ONLINE=`ls -1 $SERVER_CLIENTS_LIST_DIR | wc -l`
 echo SERV_PLAN= $SERV_PLAN SERV_ONLINE= $SERV_ONLINE
 
@@ -192,7 +214,11 @@ for i in `cat $SERVERS_CLIENT_LIST` ;do
 #	scp -i $SSH_KEY ~//sfm/server_sfm/server_sfm-sfm.lib $SFM_USERNAME@$i:~/sfm/server_sfm/
 # copy yrself yo!
 
-	scp -i $SSH_KEY $SSFM_INSTALL_DIR $SFM_USERNAME@i:$CLIENT_WORKDIR/
+
+###################################################
+#### we don't need to do this anymore ****
+####	scp -i $SSH_KEY $SSFM_INSTALL_DIR $SFM_USERNAME@i:$CLIENT_WORKDIR/
+###################################################
 #	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/SET"
 #	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/SET"
 # 	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/DONE"
@@ -211,19 +237,6 @@ done
 
 
 
-fakeServerCreation () {
-# works...  
-mkdir -p $CLIENT_LIST_DIR/fake_servers
-
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt` ; do
-mkdir -p $CLIENT_LIST_DIR/fake_servers/$i
-
-done
-
-echo "LS'n $CLIENT_LIST_DIR/fake_servers:"
-ls $CLIENT_LIST_DIR/fake_servers
-}
-
 								 #~ █████   ▓██▓ 
 								 #~ █      ▒█  █▒
 								 #~ █      █░  ▒█
@@ -241,26 +254,31 @@ echo in CopyImagesToRealServers
 echo "Tarrring"
 tar cf imageArchive.tar --directory=$SOURCE_IMAGE_DIR/ *.[jJ][pP][gG]
 
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+echo "Catting $SERVERS_CLIENT_LIST"
+cat $SERVERS_CLIENT_LIST
+
+
+for i in `cat $SERVERS_CLIENT_LIST`
 do 
     #for j in `cat $IMG_LOG_DIR/img_list.txt` ;do	
-    ssh-keygen -F "~/.ssh/known_hosts" -R $i 1>&2
-		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_WORKDIR &
+    #ssh-keygen -F "~/.ssh/known_hosts" -R $i 1>&2
+    	echo "SERVERS_CLIENT_LIST="$SERVERS_CLIENT_LIST 
+		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_IMAGE_DIR &
 		#scp -i $SSH_KEY $j $i:$CLIENT_WORKDIR
 	#done
 done
 wait
 
 count=1
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+for i in `cat $SERVERS_CLIENT_LIST`
 do
 		
-			CURRENT_SERVER=`sed -n "$count"p $CLIENT_LIST_DIR/serverlist.txt` 
+			CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
 			echo server $CURRENT_SERVER number $i
 
 			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_WORKDIR
 
-			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $CLIENT_WORKDIR ; tar xf $CLIENT_WORKDIR/imageArchive.tar &"
+			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $JOB_LOCATION ; tar xf $JOB_LOCATION/imageArchive.tar &"
 			((count++))
 done
 }
@@ -270,7 +288,7 @@ done
 
 #50-r
 copyImagesToFakeServers () {
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+for i in `cat $SERVERS_CLIENT_LIST`
 do 
      for j in `cat $IMG_LOG_DIR/img_list.txt`
 	do
@@ -300,6 +318,13 @@ done
 
 images=$NUMBER_OF_IMAGES
 servers=$NUMBER_OF_SERVERS
+	if [[ $servers -lt 1 ]] 
+		then
+			echo "you have no servers"
+			exit 1
+		else 
+			echo "you have servers..."
+	fi
 ips=$(( $images / $servers ))
 remainder=$(( $images % $servers ))
 echo Images Per Segment $ips Remainder: $remainder
@@ -343,33 +368,18 @@ count=1
 	
 echo "In copyListsToRealServers"
 
-j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1}'`
+j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1}'`
 	for (( i=1; i <= $j ; i++ ))
 		do
-			CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt` 
+			CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST` 
 			echo server $CURRENT_SERVER number $i
 
-			scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_WORKDIR
+			scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$JOB_LOCATION
 		done
 echo "leaving cLTRS"
 }
 
-#R
-copyListsToFakeServers () {
-	echo "In copyListsToFakeServers"
-	
 
-	j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1}'`
-	for (( i=1; i <= $j ; i++ ))
-		do
-			CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt` 
-			echo server $CURRENT_SERVER number $i
-			cp -v $SOURCE_IMAGE_DIR/matchlist_$i.txt $CLIENT_LIST_DIR/fake_servers/$CURRENT_SERVER/
-
-			cp -v $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CLIENT_LIST_DIR/fake_servers/$CURRENT_SERVER/
-		done
-echo "leaving cLTFS"
-}
 
 											              #~ 
 								 #~ ░████░  ▓██▓ 
@@ -384,16 +394,15 @@ echo "leaving cLTFS"
 								 				  
 								startRealSifts () {
 
-j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
+j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 
 	for (( i=1 ; i <= $j ; i++)) ; do
-		CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt`
+		CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 		echo "Creating SiftSH for $CURRENT_SERVER"
 		
-		##### WHERE YO AT YO
-		#echo cd "$HOME"/.aws/servers/fake_servers/"$CURRENT_SERVER"/ 	 > $JOBS_SET/"$i"_JOB.sh
-		#echo "echo your pwd is: \$PWD" 									>> $JOBS_SET/"$i"_JOB.sh
-		echo cd $CLIENT_WORKDIR > $JOBS_SET/"$i"_sift_JOB.sh
+
+		echo cd $JOB_LOCATION > $JOBS_SET/"$i"_sift_JOB.sh
+		echo "echo \"Executing script\"" >>$JOBS_SET/"$i"_sift_JOB.sh
 		echo VisualSFM siftgpu "$i"_siftlist.txt >> $JOBS_SET/"$i"_sift_JOB.sh
 #		echo scpHome *.sift $SOURCE_IMAGE_DIR 	 >> $JOBS_SET/"$i"_sift_JOB.sh
 		echo scp -i $SSH_KEY_C -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
@@ -401,10 +410,10 @@ j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
 	
 		chmod +x $JOBS_SET/"$i"_sift_JOB.sh
 		
-		scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$SERVER_DIR/RENDER_SERVER/JOBS_SETUP/
+		scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 
 		IN_FILE="$i"_sift_JOB.sh 
-		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $SERVER_DIR/RENDER_SERVER/JOBS_SETUP/\$RFILE $SERVER_DIR/RENDER_SERVER/JOBS_PENDING/\$RFILE"
+		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP/\$RFILE $JOBS_PENDING/\$RFILE"
 
 #		scpToCueIp "$i"_JOB.sh $CURRENT_SERVER
 		
@@ -413,24 +422,6 @@ j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
 }
 
 #80R
-startFakeSifts () {
-
-j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
-for (( i=1 ; i <= $j ; i++))
-do
-CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt`
-echo "Creating SiftSH for $CURRENT_SERVER"
-echo VisualSFM siftgpu $HOME/.aws/servers/fake_servers/"$CURRENT_SERVER"/"$i"_siftlist.txt
-echo cd "$HOME"/.aws/servers/fake_servers/"$CURRENT_SERVER"/ > $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh
-echo "echo your pwd is: \$PWD" >> $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh
-echo cd "$HOME"/.aws/servers/fake_servers/"$CURRENT_SERVER"/
-echo VisualSFM siftgpu $HOME/.aws/servers/fake_servers/"$CURRENT_SERVER"/"$i"_siftlist.txt >> $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh
-echo cp *.sift $SOURCE_IMAGE_DIR >> $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh
-chmod +x $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh
-mv $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_JOB.sh $HOME/RENDER_SERVER/JOBS_PENDING/
-
-done
-}
 
 												              #~ 
 								  #~ ███▓   ▓██▓ 
@@ -473,10 +464,10 @@ echo "looks like yr done"
 
 								 getInverseSifts () {
 
-j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
+j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 for (( i=1 ; i <= $j ; i++)) ; do
 
-CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt`
+CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 #sould become function (getLoopCurrentServerID#
 	cat <<EOF > $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh
 			cd $CLIENT_WORKDIR
@@ -506,10 +497,10 @@ EOF
 	chmod +x $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh
 	#mv $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_SIFT_MOVE_JOB.sh $HOME/RENDER_SERVER/JOBS_PENDING/
 
-	scp -i $SSH_KEY $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh $CURRENT_SERVER:$SERVER_DIR/RENDER_SERVER/JOBS_SETUP/
+	scp -i $SSH_KEY $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 
 	IN_FILE="$i"_SIFT_MOVE_JOB.sh
-	ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $SERVER_DIR/RENDER_SERVER/JOBS_SETUP/\$RFILE $SERVER_DIR/RENDER_SERVER/JOBS_PENDING/\$RFILE"
+	ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP\$RFILE $JOBS_PENDING/\$RFILE"
 	mv $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh $JOBS_DONE/"$i"_SIFT_MOVE_JOB.sh
 done
 
@@ -595,7 +586,7 @@ BenchmarkMatch (){
 
 #servers are benchmarked here to add to speed matching.
 #declare -a BENCHMARK_SERVER=( 262 252 146 )
-declare -a BENCHMARK_SERVER=( 50 100 125)
+declare -a BENCHMARK_SERVER=( 125)
 
 NUMBER_OF_SERVERS_BENCHMARK=${#BENCHMARK_SERVER[@]}
 echo "Number of servers to benchmark" $NUMBER_OF_SERVERS_BENCHMARK
@@ -654,11 +645,11 @@ INC_I=$((i +1 ))
 		fi
 echo "CS"
 
-CURRENT_SERVER=`sed -n "$INC_I"p $CLIENT_LIST_DIR/serverlist.txt`
+CURRENT_SERVER=`sed -n "$INC_I"p $SERVERS_CLIENT_LIST`
 
 echo "CS_END" 
-echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$INC_I.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_WORKDIR
-scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$INC_I.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_WORKDIR
+echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$INC_I.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
+scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$INC_I.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
 
 done
 
@@ -693,9 +684,11 @@ for (( c=1; c<=$NUMBER_OF_SERVERS; c++ ))
         	echo $STARTLINE $ENDLINE
         	sed -n "$STARTLINE","$ENDLINE"p $MATCH_LIST_DIR/.matchtmp.txt  > $SOURCE_IMAGE_DIR/matchlist_$c.txt 
 	fi
-CURRENT_SERVER=`sed -n "$c"p $CLIENT_LIST_DIR/serverlist.txt`
-scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$c.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_WORKDIR
-
+CURRENT_SERVER=`sed -n "$c"p $SERVERS_CLIENT_LIST`
+echo "I think we fail here?"
+echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$c.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
+scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$c.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
+echo "I think we fail here?^^^^^"
 done                     
 }
 														
@@ -712,19 +705,17 @@ done
 								startMatchesOnServers () {
 
 
-#adding a very basic load balancer to it...
-# split image list into 20, then keep... 
-# need to make the job dispatcher first.
+
 
 NUMBER_OF_MATCHLISTS=20
 
-j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
+j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 for (( i=1 ; i <= $j ; i++ )) ; do 
 #for (( i=1 ; i <= $NUMBER_OF_MATCHLISTS ; i++ )) ; do 
-	CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt`
+	CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 
 	cat <<EOF > $JOBS_SET/"$i"_MATCH_JOB.sh
-	cd $CLIENT_WORKDIR
+	cd $CLIENT_IMAGE_DIR
 	echo "About to match from list"
 	VisualSFM sfm+pairs+skipsfm . nomatch.nvm matchlist_$i.txt
 
@@ -735,9 +726,9 @@ EOF
 
 	chmod +x $JOBS_SET/"$i"_MATCH_JOB.sh
 	#mv $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_MATCH_JOB.sh $HOME/RENDER_SERVER/JOBS_PENDING/
-	scp -i $SSH_KEY $JOBS_SET/"$i"_MATCH_JOB.sh $CURRENT_SERVER:$SERVER_DIR/RENDER_SERVER/JOBS_SETUP/
+	scp -i $SSH_KEY $JOBS_SET/"$i"_MATCH_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 	IN_FILE="$i"_MATCH_JOB.sh
-	ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $SERVER_DIR/RENDER_SERVER/JOBS_SETUP/\$RFILE $SERVER_DIR/RENDER_SERVER/JOBS_PENDING/\$RFILE"
+	ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP\$RFILE $JOBS_PENDING/\$RFILE"
 
 done
 }
@@ -804,7 +795,7 @@ done
 
 function copyMatchesToRealServers () {
 
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+for i in `cat $SERVERS_CLIENT_LIST`
 do 
 scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR
 #     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
@@ -814,17 +805,7 @@ scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR
 done
 }
 
-#170R
-copyMatchesToFakeServers () {
 
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
-do 
-     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
-	do
-	cp -v $j $CLIENT_LIST_DIR/fake_servers/$i
-	done
-done
-}
 
 
 								  #~ ███    ░████░  ▓██▓ 
@@ -854,32 +835,26 @@ echo "Tarring CMVS dirs"
 echo "I am in directory..."  $PWD  "-- end PWD"
 
 echo $CMVS_NAME
-echo "STOPPING.... CTRL-C Me"
-read Nothing
 
 
 tar cf cmvs.tar $CMVS_NAME
 
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+for i in `cat $SERVERS_CLIENT_LIST`
 do 
-    #for j in `cat $IMG_LOG_DIR/img_list.txt` ;do	
-    ssh-keygen -F "~/.ssh/known_hosts" -R $i 1>&2
-		scp -i $SSH_KEY cmvs.tar $i:$CLIENT_WORKDIR &
-		#scp -i $SSH_KEY $j $i:$CLIENT_WORKDIR
-	#done
-done
+		scp -i $SSH_KEY cmvs.tar $i:$CLIENT_IMAGE_DIR &
+	done
 wait
 
 count=1
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt`
+for i in `cat $SERVERS_CLIENT_LIST`
 do
 		
-			CURRENT_SERVER=`sed -n "$count"p $CLIENT_LIST_DIR/serverlist.txt` 
+			CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
 			echo server $CURRENT_SERVER number $i
 
-			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_WORKDIR
+			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_IMAGE_DIR
 
-			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $CLIENT_WORKDIR ; tar xf $CLIENT_WORKDIR/cmvs.tar &"
+			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $CLIENT_IMAGE_DIR ; tar xf $CLIENT_IMAGE_DIR/cmvs.tar &"
 			((count++))
 done
 
@@ -917,11 +892,12 @@ for i in "${PMVS_DIR[@]}"
 			jobNamePrefix=${j##*/}
 			currentClusterOptionPLY="pmvs_job_"$i"_"$jobNamePrefix"_"$padJobNumber".sh"
 			echo "Filename for Job is: $currentClusterOptionPLY"
+			echo "CMVS NAME is.... $CMVS_NAME"
 #generate pmvs job script
 cat <<EOF > $JOBS_SET/$currentClusterOptionPLY
 #!/bin/bash
-cd ~/Pictures/sfmWorkDir/$CMVS_NAME
-CPU_NUMBER=\$(cat ~/sfm/.maxThreads)
+cd $CLIENT_IMAGE_DIR/$CMVS_NAME
+CPU_NUMBER=\$(cat $RENDER_SERVER/maxThreads)
 sed -i_CPU "s/CPU.*/CPU \$CPU_NUMBER/g" $i/${j##*/}
 pmvs2 $i/ ${j##*/}
 echo "about to copy scp -i $SSH_KEY $i/models/${j##*/}.ply $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/$CMVS_NAME/$i/models/"
@@ -935,10 +911,10 @@ EOF
 		done
 		
 
-#       scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$SERVER_DIR/RENDER_SERVER/JOBS_SETUP/
+#       scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 #       IN_FILE="$i"_sift_JOB.sh
 #       ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE 
-#       mv $SERVER_DIR/RENDER_SERVER/JOBS_SETUP/\$RFILE $SERVER_DIR/RENDER_SERVER/JOBS_PENDING/\$RFILE"
+#       mv $JOBS_SETUP\$RFILE $JOBS_PENDING/\$RFILE"
 #       mv $JOBS_SET/"$i"_sift_JOB.sh $JOBS_DONE/
 	
 
@@ -971,9 +947,8 @@ while true
 						echo "Job will be sent out to $firstMachineOnTheRank"
 						pmvsJobChoice=`ls -1 $JOBS_SET/pmvs_job* | head -1`
 						echo "Choosing $pmvsJobChoice to send to $firstMachineOnTheRank"
-						#ssh-keygen -F "~/.ssh/known_hosts" -R $firstMachineOnTheRank
-						scp -i $SSH_KEY  -o "StrictHostKeyChecking no" $pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:~/sfm/RENDER_SERVER/JOBS_PENDING/
-						mv $pmvsJobChoice $JOBS_DONE/
+						scp -i $SSH_KEY $pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:$JOBS_PENDING/
+						####mv $pmvsJobChoice $JOBS_COMPLETE/
 				fi
 		sleep 1
 		done
@@ -998,7 +973,7 @@ done
 startCMVS () {
 :
 #                           images/X       maxCPU  
-cmvs $PROJECTNAME.nvm.cmvs/ maximage[=100] CPU[=4]
+cmvs $PROJECTNAME.nvm.cmvs/ maximage[=100] CPU[=16]
 
 }
 
@@ -1082,11 +1057,10 @@ IFS=$OLD_IFS
 
 
 # COMMON FUNCTIONS
-
-    #~                              ▗▀              ▗   ▝              
+     #~                              ▗▀              ▗   ▝              
 	#~  ▄▖  ▄▖ ▗▄▄ ▗▄▄  ▄▖ ▗▗▖     ▗▟▄ ▗ ▗ ▗▗▖  ▄▖ ▗▟▄ ▗▄   ▄▖ ▗▗▖  ▄▖ 
 	#~ ▐▘▝ ▐▘▜ ▐▐▐ ▐▐▐ ▐▘▜ ▐▘▐      ▐  ▐ ▐ ▐▘▐ ▐▘▝  ▐   ▐  ▐▘▜ ▐▘▐ ▐ ▝ 
-	#~ ▐   ▐ ▐ ▐▐▐ ▐▐▐ ▐ ▐ ▐ ▐      ▐  ▐ ▐ ▐ ▐ ▐    ▐   ▐  ▐ ▐ ▐ ▐  ▀▚ 
+	#~ ▐   ▐  ▐ ▐▐▐ ▐▐▐ ▐ ▐ ▐ ▐      ▐  ▐ ▐ ▐ ▐ ▐    ▐   ▐  ▐ ▐ ▐ ▐  ▀▚ 
 	#~ ▝▙▞ ▝▙▛ ▐▐▐ ▐▐▐ ▝▙▛ ▐ ▐      ▐  ▝▄▜ ▐ ▐ ▝▙▞  ▝▄ ▗▟▄ ▝▙▛ ▐ ▐ ▝▄▞ 
 
 #~ 
@@ -1098,13 +1072,11 @@ IFS=$OLD_IFS
 clearTempDirs () {
 
 echo "Clearing All remote store Directories"
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt` ;do 
-# this line removes the ip from knownhosts to prevent a Spoof Login
-    ssh-keygen -F "~/.ssh/known_hosts" -R $i
-
-	ssh -i $SSH_KEY $SFM_USERNAME@$i "rm -vr ~/Pictures/sfmWorkDir/*"
-
-
+for i in `cat $SERVERS_CLIENT_LIST` ;
+	do 
+		echo "About to clear out client render dirs, hit ENTER or CTRL-C to cancel"
+		read nothing		
+		ssh -i $SSH_KEY $SFM_USERNAME@$i "rm -vr $CLIENT_LIST_DIR/*"
 done
 
 }
@@ -1113,18 +1085,21 @@ done
 clearAllJobs () {
 
 echo "About to clean render directories"
-for i in `cat $CLIENT_LIST_DIR/serverlist.txt` ; do 
-	ssh-keygen -F "~/.ssh/known_hosts" -R $i
-        ssh -i $SSH_KEY $SFM_USERNAME$i "rm -vr \$RENDER_SERVER/\$JOBS_PENDING/*; rm -vr \$RENDER_SERVER/JOBS_COMPLETED/* ; rm -vr \$RENDER_SERVER/JOBS_CUED/* ; rm -vr \$RENDER_SERVER/JOBS_SETUP/*" 
+for i in `cat $SERVERS_CLIENT_LIST` ; do 
+		:
+		echo "not doing anything but learning from this!"
+        #Farrkin insane!i!
+        #why do we need to even do this?¿
+        #ssh -i $SSH_KEY $SFM_USERNAME@$i "cd $JOBS_PENDING && rm -v *.sh ;  cd $JOBS_COMPLETE && rm -v *.sh " 
 done
 }
 
 
 #### this is how it's meant to be done!!! oh well..
-# j=`wc -l $CLIENT_LIST_DIR/serverlist.txt | awk '{ print $1 }'`
+# j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 # 
 # 	for (( i=1 ; i <= $j ; i++)) ; do
-# 		CURRENT_SERVER=`sed -n "$i"p $CLIENT_LIST_DIR/serverlist.txt`
+# 		CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 # 		echo "Creating SiftSH for $CURRENT_SERVER"
 # 		
 # 		##### WHERE YO AT YO
@@ -1138,10 +1113,10 @@ done
 # 	
 # 		chmod +x $JOBS_SET/"$i"_sift_JOB.sh
 # 		
-# 		scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$SERVER_DIR/RENDER_SERVER/JOBS_SETUP/
+# 		scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 # 
 # 		IN_FILE="$i"_sift_JOB.sh 
-# 		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $SERVER_DIR/RENDER_SERVER/JOBS_SETUP/\$RFILE $SERVER_DIR/RENDER_SERVER/JOBS_PENDING/\$RFILE"
+# 		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP\$RFILE $JOBS_PENDING/\$RFILE"
 # 
 # #		scpToCueIp "$i"_JOB.sh $CURRENT_SERVER
 # 		
