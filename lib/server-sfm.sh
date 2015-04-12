@@ -34,14 +34,6 @@ purgeFilesInRemoteProcessingDirectories
 
 #40
 clientInit
-#fakeServerCreation
-echo "end here?"
-#read ab
-#read av
-
-
-#removing for latest version
-#initRemoteServers
 
 #50
 copyImagesToRealServers

@@ -16,86 +16,81 @@ echo "Booting SFM..."
 
 initVars () {
 
-#SFM_INSTALL_DIR=$(readPrefs sfmDir)"/somthing/"
+#alter these three variables for your own configuration, may have an effect on the installer, so make sure you know what you are doing
 
-#alter these three variables for your own configuration
-
-#main ssh key that connects host to clients and vice versa
+#main ssh key that connects host to clients and vice versa, this is set in the installer
 SSH_KEY=$(readPrefs sshKey)
-SSH_KEY_C=$(readPrefs sshKey)
 
 #this is the username on ALL machines... will need to work out a new way to work under different names...
 SFM_USERNAME=$(readPrefs username);
 
-
+#location of the install archive which becomes the working directory.  
 SSFM_INSTALL_DIR=$(readPrefs ssfmInstallDir)
-echo "trying to assign SSFM_INSTALL_DIR to $SSFM_INSTALL_DIR"
+echo "Trying to assign SSFM_INSTALL_DIR to $SSFM_INSTALL_DIR"
 
+#this is the same as the installer dir, to conform to legacy where the "render server" was located somewhere else, now we work in the install directory to ease a putting things all over the users computer.
 SERVER_WORKDIR=$(readPrefs serverWorkDir)
+echo "Trying to assing SERVER_WORKDIR to $SERVER_WORKDIR"
 
-echo "trying to assing SERVER_WORKDIR to $SERVER_WORKDIR"
+
+#local jpeg folder attributes
+#
 #where img_list.txt and matches/.matchtmp.txt is kept
 IMG_LOG_DIR=$(readPrefs serverWorkDir)"/imglogdir"
-
-#where serverlist.txt a list of used servers is kept
-# this is wrong!!!
-
-
-
 #where .matchtmp.txt is kept
 MATCH_LIST_DIR=$IMG_LOG_DIR/matches
 
 
-
-#where the server lists clients                                  ## set to idle eventually
+#client "render server" attributes
+#
+#where the server lists clients
 SERVER_CLIENTS_LIST_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
 SERVERS_CLIENT_LIST=$SERVER_WORKDIR"/jobs/server/clients/clientlist.txt"
+
 
 #Directory on Clients where the images are worked on.
 CLIENT_WORKDIR=$(readPrefs clientWorkDir)
 CLIENT_IMAGE_DIR=$CLIENT_WORKDIR/task_processing/
-HOSTS_ONLINE=$SERVER_WORKDIR/jobs/server/clients/idle/
-
-## RUNTIME VARIABLES (not part of preferences)
 
 # This is the main machine the script is executed on.
 MASTER_SERVER=$(readPrefs masterServer)
 
 #directory where script is executed (should only contain images!)
-#!#change to IMAGE_DIR
 SOURCE_IMAGE_DIR=$PWD
 
+# VisualSFM & PMVS names calculated from the folder we start the script in.
+#
 #vsfm project name
-#!#change to ${IMAGE_DIR}.nvm
 PROJECT_NAME=${SOURCE_IMAGE_DIR##*/}.nvm
-
 #cmvs directory
 CMVS_NAME=$PROJECT_NAME.cmvs
 
-
-#vars used for client launch scripts
-#Location of Jobs Cues on Clients
+#Variables used for location of Jobs Cues on Clients
 JOBS_SET=$(readPrefs serverWorkDir)"/jobs/server/set"
 JOBS_DONE=$(readPrefs serverWorkDir)"/jobs/server/done"
 
 #Host Idle Directory
+
+HOSTS_ONLINE=$SERVER_WORKDIR/jobs/server/clients/idle/
+#double up!
 IDLE_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/idle"
 BUSY_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/busy"
 
 #same as SERVER_CLIENTS_LIST_DIR... better name though?
 HAVE_LAUNCHED_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
 
+#Jobs Cue locations
 RENDER_SERVER=$SERVER_WORKDIR"/jobs/client/"
 JOBS_PENDING=$RENDER_SERVER"/pending/"
 JOBS_PROCESSING=$RENDER_SERVER"/processing/"
 JOBS_COMPLETE=$RENDER_SERVER"/complete/"
 JOBS_FAILED=$RENDER_SERVER"/failed/"
+JOBS_SETUP=$RENDER_SERVER"/setup/"
+JOBS_CUED=$RENDER_SERVER"/cued/"
+JOB_LOCATION=$RENDER_SERVER"/task_processing/"
+OUTPUT_FOLDER=$RENDER_SERVER"/completed/"
 
-JOBS_SETUP=$RENDER_SERVER/setup/
-JOBS_CUED=$RENDER_SERVER/cued/
-JOB_LOCATION=$RENDER_SERVER/task_processing/
-OUTPUT_FOLDER=$RENDER_SERVER/completed/
-
+#Just here for checking readPrefs and editPrefs functions
 TEST_PREF=$(readPrefs testPref)
 }
 
@@ -112,24 +107,15 @@ echo "JOBS_DONE: $JOBS_DONE"
 echo "JOBS_SET: $JOBS_DONE"
 echo "PROJECT_NAME: $PROJECT_NAME"
 echo "CMVS_NAME: $CMVS_NAME"
+
+echo "Hit ENTER to continue, or CTRL-C to exit"
 read nothing
 }
 
 
-initVars_sh_server () {
-
-#this should just be part of the above... as the host is also a client of itself, plus not sure it just gets executed by the host anyway!
-
-RENDER_SERVER=$SERVER_WORKDIR/jobs/client/
-JOBS_PENDING=$RENDER_SERVER/pending/
-
-}
-
 initRm () {
 
 echo ""
-
-
 echoBad "About to rm pretty much all NON jpeg in $SOURCE_IMAGE_DIR."
 ls -1 | sed '/[jJ][pP][gG]*$/d'
 
@@ -138,27 +124,9 @@ read nothing_again
 
 #once working should take a lot more general approach
 
-rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists $IDLE_DIR/* $SOURCE_IMAGE_DIR/*.tar $SOURCE_IMAGE_DIR/siftlists
-
-echo "Contents now in $SOURCE_IMAGE_DIR/"
-
-read nothing_again
+rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists/ $IDLE_DIR/* $SOURCE_IMAGE_DIR/*.tar 
 
 }
-
-initDirs () {
-#replaced by just copying our main dir?
-mkdir -pv $SERVER_WORKDIR/iplog $SERVER_WORKDIR/imglogdir/matches $SOURCE_IMAGE_DIR/siftlists 
-
-}
-
-#not sure about this...
-initClientDirs () {
-mkdir -pv $CLIENT_WORKDIR"/iplog" $CLIENT_WORKDIR"/imglogdir/matches" $CLIENT_IMAGE_DIR"/siftlists"
-mkdir -pv $CLIENT_WORKDIR"/serverID/"
-}
-
-
 
 
 getImgList () {
@@ -166,24 +134,22 @@ getImgList () {
 ls -1 *.[jJ][Pp][Gg] > $IMG_LOG_DIR/img_list.txt
 IMAGES=`wc -l $IMG_LOG_DIR/img_list.txt | awk '{print$1}'`
 NUMBER_OF_IMAGES=$IMAGES
-echo $IMAGESJOBS_CUE
+
 }
 
 
 assignClientRange () {
-# this needs to read from our list @ $SERVER_WORKDIR/jobs/server/clients/clientlist.txt
+#was far more complicated when starting up EC2 instances
 
-#rm -fr $SERVERS_CLIENT_LIST
-echo "Server List is: `cat $SERVER_WORKDIR/jobs/server/clients/clientlist.txt`"
-NUMBER_OF_SERVERS=$(wc -l $SERVER_WORKDIR/jobs/server/clients/clientlist.txt | awk {'print $1'})
+#This is just inited from...
+echo "Server List is: `cat $SERVERS_CLIENT_LIST`"
+NUMBER_OF_SERVERS=$(cat $SERVERS_CLIENT_LIST | sed '/^\s*$/d' | wc -l)
 
 }
 
 purgeFilesInRemoteProcessingDirectories () {
 
-echo "About to rm all images in client directories"
-echo "Hit ENTER or CTRL-C to exit..."
-read nothing
+echo "About to rm all images in temporary client directories..."
 
 for i in `cat $SERVERS_CLIENT_LIST`; do
 	if [ -z $JOB_LOCATION ]
@@ -201,8 +167,6 @@ for i in `cat $SERVERS_CLIENT_LIST`; do
 		 				echo "Not deleting" ; exit 1 ;
 		 		fi			 
 		fi 		
-
-	read nothing
 done
 }
 
@@ -436,7 +400,7 @@ j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 		echo "echo \"Executing script\"" >>$JOBS_SET/"$i"_sift_JOB.sh
 		echo VisualSFM siftgpu "$i"_siftlist.txt >> $JOBS_SET/"$i"_sift_JOB.sh
 #		echo scpHome *.sift $SOURCE_IMAGE_DIR 	 >> $JOBS_SET/"$i"_sift_JOB.sh
-		echo scp -i $SSH_KEY_C -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
+		echo scp -i $SSH_KEY -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
 
 	
 		chmod +x $JOBS_SET/"$i"_sift_JOB.sh
@@ -518,11 +482,11 @@ CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 			for i in \`cat .outlist_prext.txt\` 
 				do 
 					#cp /media/ephemeral/\$i.sift . ;done 
-					scp -i $SSH_KEY_C $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/\$i.sift . ;
+					scp -i $SSH_KEY $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/\$i.sift . ;
 					done
 			rm .outlist_prext.txt
 			#touch $SOURCE_IMAGE_DIR/got_sifts_$i
-			ssh -i $SSH_KEY_C -o "StrictHostKeyChecking no" $SFM_USERNAME@$MASTER_SERVER	 "touch $SOURCE_IMAGE_DIR/got_sifts_$i"
+			ssh -i $SSH_KEY -o "StrictHostKeyChecking no" $SFM_USERNAME@$MASTER_SERVER	 "touch $SOURCE_IMAGE_DIR/got_sifts_$i"
 EOF
 
 	chmod +x $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh
@@ -761,7 +725,7 @@ for (( i=1 ; i <= $j ; i++ )) ; do
 	VisualSFM sfm+pairs+skipsfm . nomatch.nvm matchlist_$i.txt
 
 	VisualSFM sfm+skipsfm+exportp . matches_out_$i.txt
-	scp -i $SSH_KEY_C matches_out_$i.txt $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/
+	scp -i $SSH_KEY matches_out_$i.txt $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/
 	#cp matches_out_$i.txt $SOURCE_IMAGE_DIR/
 EOF
 
@@ -1155,7 +1119,7 @@ done
 # 		echo cd $CLIENT_WORKDIR > $JOBS_SET/"$i"_sift_JOB.sh
 # 		echo VisualSFM siftgpu "$i"_siftlist.txt >> $JOBS_SET/"$i"_sift_JOB.sh
 # #		echo scpHome *.sift $SOURCE_IMAGE_DIR 	 >> $JOBS_SET/"$i"_sift_JOB.sh
-# 		echo scp -i $SSH_KEY_C -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
+# 		echo scp -i $SSH_KEY -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
 # 
 # 	
 # 		chmod +x $JOBS_SET/"$i"_sift_JOB.sh
