@@ -104,3 +104,23 @@ function remove {
 
 }
 
+function getLocalIP () {
+
+for i in {0..2} ;
+        do
+        j=`ipconfig getifaddr en$i`
+                if [ -z "$j" ]
+                        then
+                        :
+                        else addr=$j
+                fi
+        done
+echo $addr
+}
+
+function resolveNameFromIP () {
+IP=$1
+host $IP | awk -F'pointer' '{print $2}' | sed 's/\.//'
+}
+
+

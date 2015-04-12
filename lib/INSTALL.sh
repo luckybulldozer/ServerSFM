@@ -28,8 +28,6 @@ Since this is a pretty early beta of the software, the system installs into the 
 
 EOF
 echoBad "Hit enter to keep going, otherwise hit CTRL-C now to cancel"
-read nothing
-
 }
 
 
@@ -39,9 +37,15 @@ cat <<EOF
 Please enter a directory for you main machine to install data it will frequently use?  This is the job cues etc.  Should be on your fastest disk, also may generate a few gig of data each time used."
 EOF
 
+editPrefs masterServer `hostname`
+
 SERVER_WORKDIR=$(expand_tilde $SSFM_INSTALL_DIR)
 mkdir -p $SERVER_WORKDIR
 editPrefs serverWorkDir $SERVER_WORKDIR
+
+echoGood "About to delete the content of clientlist.txt"
+read nothing
+echo "" > $SERVER_WORKDIR/jobs/server/clients/clientlist.txt
 }
 
 function setupUsername () {
@@ -57,6 +61,7 @@ echo "Enter the name of your clients, including your local host if you want that
 echoGood "Include the domain, eg myClient.local"
 echoBad "Put each client name on a new line, an empty line (ENTER) will finish the addition of new clients and move on."
 
+CLIENT_LIST_VAR=""
 NEW_CLIENT="empty"
 NUMBER_OF_CLIENTS=0
 until [ -z $NEW_CLIENT ]
@@ -95,6 +100,7 @@ echoBad "SSH Key Location or ENTER to set one up"
 read -e SSH_KEY
 SSH_KEY_TILDE=$(expand_tilde "$SSH_KEY")
 SSH_KEY=$SSH_KEY_TILDE
+SFM_USERNAME=`readPrefs username`
 	
 	#if we have an SSH Key Or Not
 	#if we don't
@@ -105,8 +111,11 @@ SSH_KEY=$SSH_KEY_TILDE
 		echoGood "Copying SSH key to remote clients"
 		echoBad "You will need to enter the password and accept yes to the authentication"
 			for i in `cat $CLIENT_LIST` ; do
+				echoGood "Removing $i from ~/ssh/known_hosts (will create a backup)"
+				ssh-keygen -R $i
 				echoGood "Connecting to $i"
-				ssh -q $i "mkdir ~/.ssh 2>/dev/null; chmod 700 ~/.ssh; echo "$KEYCODE" >> ~/.ssh/authorized_keys; chmod 644 ~/.ssh/authorized_keys"  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working=["			
+				ssh -q $i "ssh-keygen -R $i ; mkdir ~/.ssh 2>/dev/null; chmod 700 ~/.ssh; echo "$KEYCODE" >> ~/.ssh/authorized_keys; chmod 644 ~/.ssh/authorized_keys ; ssh-keygen -y -f "$SSH_KEY" > "$SSH_KEY.pub""  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working..."
+				scp -i $SSH_KEY $SSH_KEY.pub $SFM_USERNAME@$i~/.ssh/ 			
 			done
 	# if we do
 	else
@@ -161,7 +170,7 @@ echo "Copying folder structure to remote clients"
 find $SERVER_WORKDIR -not -path '*/\.*' 
 find $SERVER_WORKDIR -not -path '*/\.*' -type d > $SERVER_WORKDIR/lib/folderStructure.tmp
 
-read nothing
+
 
 echoGood "Setting up work directories on clients." 
 
@@ -172,13 +181,22 @@ for i in `echo $clientListPrefs` ;
 	do  
 		if [[ "$i" == `hostname` ]] ; 
 			then echo "is host" ; 
-		else 
-			echo "copy to: $i" ;
+		elif [[ "$i" == `getLocalIP` ]]
+			then echo "is numeric host" ;
+		else
+			echo "copy to: $i" `resolveNameFromIP $i`
+			echoBad "is that ok?"; read nothing ;
 			ssh -i $SSH_KEY $USER_NAME@$i "mkdir $SERVER_WORKDIR"
-				
+			 	
 				for j in `cat $SERVER_WORKDIR/lib/folderStructure.tmp` ; 
 					do  ssh -i $SSH_KEY $USER_NAME@$i "mkdir $j"
 				done
+			
+			#copy master key...
+			echo "Master key copy..."			
+			echo scp -r -i $SSH_KEY $SSH_KEY $USER_NAME@$i:$SSH_KEY
+			scp -r -i $SSH_KEY $SSH_KEY $USER_NAME@$i:$SSH_KEY
+			read nothing
 			
 			scp -r -i $SSH_KEY $SERVER_WORKDIR/lib/* $USER_NAME@$i:$SERVER_WORKDIR/lib
 			scp -r -i $SSH_KEY $SERVER_WORKDIR/prefs/* $USER_NAME@$i:$SERVER_WORKDIR/prefs	
@@ -187,7 +205,6 @@ for i in `echo $clientListPrefs` ;
 done
 
 }
-
 
 function setupExit () {
 
@@ -199,13 +216,61 @@ EOF
 
 }
 
+function testMachineSpeeds () {
+
+clientListPrefs=`readPrefs clientNames`
+echo $clientListPrefs
+SERVER_WORKDIR=`readPrefs serverWorkDir`
+BENCHMARK_DIR=`readPrefs clientWorkDir`processing
+USERNAME=`readPrefs username`
+SSH_KEY=`readPrefs sshKey`
+
+echo `readPrefs clientWorkDir`
+echo "BENCHMARK_DIR = "$BENCHMARK_DIR
+
+for i in `echo $clientListPrefs` ; do
+
+scp -i $SSH_KEY $SERVER_WORKDIR/benchmarks/speedTestMatch.tar $USERNAME@$i:$BENCHMARK_DIR
+
+echo "cd $BENCHMARK_DIR" > benchmarkJob
+echo " tar xf speedTestMatch.tar" >> benchmarkJob
+echo "cd $BENCHMARK_DIR/speedTestMatch" >> benchmarkJob
+echo "inPoint=\$(date +%s)" >> benchmarkJob
+echo "VisualSFM sfm+skipsfm . out.nvm" >> benchmarkJob
+echo "outPoint=\$(date +%s)" >> benchmarkJob
+echo "diffTime=\$(( \$outPoint - \$inPoint ))" >> benchmarkJob
+echo "echo \"that took \$diffTime seconds\" " >> benchmarkJob
+echo "echo \$diffTime > $SERVER_WORKDIR/jobs/client/matchSpeed" >> benchmarkJob
+echo "cd ../ ; rm -r speedTestMatch*" >> benchmarkJob
+
+
+# cat <<- EOF > benchmarkJob
+# cd $BENCHMARK_DIR
+# tar xf speedTestMatch.tar
+# cd $BENCHMARK_DIR/speedTestMatch 
+# inPoint=$(date +%s)
+# VisualSFM sfm+skipsfm . out.nvm
+# outPoint=$(date +%s)
+# diffTime=$(( $outPoint - $inPoint ))
+# echo "that took $diffTime seconds"
+# EOF
+
+
+	mv benchmarkJob benchmarkJob_$i.sh
+	chmod +x benchmarkJob_$i.sh
+	scp -i $SSH_KEY benchmarkJob_$i.sh $USERNAME@$i:$SERVER_WORKDIR/jobs/client/pending/ 
+	#rm benchmarkJob_$i.sh
+
+done
+}
+
 
 setupWelcome
 setupWorkdir
 setupUsername
-#setupClientList
-#setupSSHKeys
+setupClientList
+setupSSHKeys
 SSH_KEY=~/.ssh/ServerSFM
 setupClientDirs
 setupExit
-
+testMachineSpeeds

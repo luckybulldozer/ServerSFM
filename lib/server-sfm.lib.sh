@@ -59,7 +59,7 @@ HOSTS_ONLINE=$SERVER_WORKDIR/jobs/server/clients/idle/
 ## RUNTIME VARIABLES (not part of preferences)
 
 # This is the main machine the script is executed on.
-MASTER_SERVER=$(hostname)
+MASTER_SERVER=$(readPrefs masterServer)
 
 #directory where script is executed (should only contain images!)
 #!#change to IMAGE_DIR
@@ -128,15 +128,20 @@ JOBS_PENDING=$RENDER_SERVER/pending/
 initRm () {
 
 echo ""
-echo "About to rm all the stuff in $SOURCE_IMAGE_DIR execept the JPGS of course... hit ENTER or CTRL-C to fail"
+
+
+echoBad "About to rm pretty much all NON jpeg in $SOURCE_IMAGE_DIR."
+ls -1 | sed '/[jJ][pP][gG]*$/d'
+
+echo "ENTER or CTRL-C to fail"
+read nothing_again
 
 #once working should take a lot more general approach
 
-rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists $IDLE_DIR/*
+rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists $IDLE_DIR/* $SOURCE_IMAGE_DIR/*.tar $SOURCE_IMAGE_DIR/siftlists
 
 echo "Contents now in $SOURCE_IMAGE_DIR/"
-ls $SOURCE_IMAGE_DIR
-echo "Hit ENTER again to continue..."
+
 read nothing_again
 
 }
@@ -173,7 +178,33 @@ echo "Server List is: `cat $SERVER_WORKDIR/jobs/server/clients/clientlist.txt`"
 NUMBER_OF_SERVERS=$(wc -l $SERVER_WORKDIR/jobs/server/clients/clientlist.txt | awk {'print $1'})
 
 }
-				 				  
+
+purgeFilesInRemoteProcessingDirectories () {
+
+echo "About to rm all images in client directories"
+echo "Hit ENTER or CTRL-C to exit..."
+read nothing
+
+for i in `cat $SERVERS_CLIENT_LIST`; do
+	if [ -z $JOB_LOCATION ]
+		then
+			echo "failed to find \$JOB_LOCATION variable, this could be fatal" ; exit 1 ; 
+		else
+			ssh -i $SSH_KEY $SFM_USERNAME@$i "ls -l $JOB_LOCATION*"
+			echo "Confirm remove ALL contents of this directory y/N?"
+		 	read delConfirm
+		 		if [ $delConfirm == "y" ] 
+		 			then 
+		 				echo "About to delete directory contents"
+						ssh -i $SSH_KEY $SFM_USERNAME@$i "rm -v $JOB_LOCATION*" 
+		 			else
+		 				echo "Not deleting" ; exit 1 ;
+		 		fi			 
+		fi 		
+
+	read nothing
+done
+}
 
 
 clientInit () {
@@ -263,7 +294,7 @@ do
     #for j in `cat $IMG_LOG_DIR/img_list.txt` ;do	
     #ssh-keygen -F "~/.ssh/known_hosts" -R $i 1>&2
     	echo "SERVERS_CLIENT_LIST="$SERVERS_CLIENT_LIST 
-		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_IMAGE_DIR &
+		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_IMAGE_DIR
 		#scp -i $SSH_KEY $j $i:$CLIENT_WORKDIR
 	#done
 done
@@ -548,6 +579,7 @@ OLD_IFS=$IFS
 IFS=$'\r\n' GLOBIGNORE='*' :;
 FILENAMEARRAY=($(cat $IMG_LOG_DIR/img_list.txt))
 
+#      c = 0 ; 
 for (( c = 1; c <= $IMAGES; c++ ))
 	do
 	MATCHBEGIN=$(( c + 1 ))
@@ -586,14 +618,24 @@ BenchmarkMatch (){
 
 #servers are benchmarked here to add to speed matching.
 #declare -a BENCHMARK_SERVER=( 262 252 146 )
-declare -a BENCHMARK_SERVER=( 125)
+#declare -a BENCHMARK_SERVER=( 125)
+serverCount=0
+for i in `cat $SERVERS_CLIENT_LIST` ; do
+	echo currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
+    currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
+    BENCHMARK_SERVER[serverCount]=$currentServerMatchBenchmark
+	((serverCount++))
+done
+echo "Server Benchmarks are: ${BENCHMARK_SERVER[@]}"
 
 NUMBER_OF_SERVERS_BENCHMARK=${#BENCHMARK_SERVER[@]}
-echo "Number of servers to benchmark" $NUMBER_OF_SERVERS_BENCHMARK
+echo "Number of servers benchmarked" $NUMBER_OF_SERVERS_BENCHMARK
 MATCH_TOTAL=0
 MATCH_LIST=$MATCH_LIST_DIR/.matchtmp.txt
 MATCH_LIST_TOTAL=`wc -l $MATCH_LIST | awk '{ print $1 }'`
 END_LIST=$((MATCH_LIST_TOTAL - 1))
+
+echoBad "Stopping from BenchmarkMatch for a mo..."
 
 for (( i=0; i < $NUMBER_OF_SERVERS_BENCHMARK ; i++ ))
 do
@@ -707,11 +749,10 @@ done
 
 
 
-NUMBER_OF_MATCHLISTS=20
 
 j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
 for (( i=1 ; i <= $j ; i++ )) ; do 
-#for (( i=1 ; i <= $NUMBER_OF_MATCHLISTS ; i++ )) ; do 
+
 	CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 
 	cat <<EOF > $JOBS_SET/"$i"_MATCH_JOB.sh
@@ -797,7 +838,7 @@ function copyMatchesToRealServers () {
 
 for i in `cat $SERVERS_CLIENT_LIST`
 do 
-scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR
+scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR/task_processing
 #     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
 #	do
 #	scp -i dloud.pem $j $i:/media/ephemeral
@@ -946,9 +987,15 @@ while true
 					else
 						echo "Job will be sent out to $firstMachineOnTheRank"
 						pmvsJobChoice=`ls -1 $JOBS_SET/pmvs_job* | head -1`
-						echo "Choosing $pmvsJobChoice to send to $firstMachineOnTheRank"
-						scp -i $SSH_KEY $pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:$JOBS_PENDING/
-						####mv $pmvsJobChoice $JOBS_COMPLETE/
+						if [[ -z "$pmvsJobChoice" ]] 
+						then
+							echo "All PMVS Jobs Done=]"
+							exit 0
+						else
+							echo "Choosing $pmvsJobChoice to send to $firstMachineOnTheRank"
+							scp -i $SSH_KEY $pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:$JOBS_PENDING/
+							mv $pmvsJobChoice $JOBS_COMPLETE/
+						fi
 				fi
 		sleep 1
 		done

@@ -12,7 +12,8 @@ dan.local.local
 #testPref
 undefinedTest
 #clientNames
-dan.local,dan17.local
+10.1.1.2,10.1.1.4
 #clientWorkDir
 /Users/dmonaghan/ServerSFM/jobs/client/
-
+#masterServer
+dan.local

@@ -30,6 +30,8 @@ getImgList
 #
 assignClientRange
 
+purgeFilesInRemoteProcessingDirectories
+
 #40
 clientInit
 #fakeServerCreation
