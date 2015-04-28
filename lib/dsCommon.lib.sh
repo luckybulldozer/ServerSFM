@@ -2,7 +2,7 @@
 # this is where all the common functions are kept.
 
 LIBDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-echo "dsCommon says libdir= $LIBDIR"
+#echo "dsCommon says libdir= $LIBDIR"
 
 
 
@@ -122,5 +122,51 @@ function resolveNameFromIP () {
 IP=$1
 host $IP | awk -F'pointer' '{print $2}' | sed 's/\.//'
 }
+
+function pauseWarning () {
+
+echo "Hit `echoGood ENTER` to continue, or `echoBad CTRL-C` to exit"
+printf ">"
+read nothing
+}
+
+
+#### progress bar ####
+
+ProgressBar () {
+
+COMMENT=$3
+COLUMNS=$(tput cols)
+((COLUMNS--))
+CURRENT_POS=$1
+TOTAL=$2
+
+COLUMNS_FACTOR=$( echo "scale = 5 ; $COLUMNS / $TOTAL " |bc )
+OUTPUT_POS=$( echo "scale = 5; $CURRENT_POS * $COLUMNS_FACTOR" | bc )
+OUTPUT_POS=${OUTPUT_POS%.*}
+((OUTPUT_POS++))
+
+SUB_POS=$(( COLUMNS - OUTPUT_POS  ))
+((SUB_POS++))
+#echo $OUTPUT_POS $SUB_POS
+if [[ "$OUTPUT_POS" -eq "0" || "$SUB_POS" -lt "1" ]]
+	then 
+		echo "### done ###"
+	else
+#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
+		RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
+#█░
+		PERCENT=$( echo "scale = 3; ( $OUTPUT_POS / $COLUMNS ) * 100" | bc )
+		PERCENT=${PERCENT%.*}
+	printf "$PERCENT %%\r"
+fi
+sleep .1
+}
+
+RepeatChar () {
+    seq  -f $1 -s '' $2
+}
+
+
 
 

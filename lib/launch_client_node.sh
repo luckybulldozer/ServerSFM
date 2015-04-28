@@ -11,6 +11,8 @@ echo "launcher says libdir= $LIBDIR"
 source $LIBDIR/dsCommon.lib.sh
 source $LIBDIR/server-sfm.lib.sh
 initVars
+
+#legacy --- to delete seems to work!
 initClientDirs
 
 FULLHOSTNAME=`getLocalIP`
@@ -117,6 +119,7 @@ while true
 							echoBad "Task Failed! - moving to jobs/client/failed/" ;
 							mv $JOBS_PROCESSING/$jobsProcessing $JOBS_FAILED/$jobsProcessing
 							unset jobsProcessing
+							ssh -i $SSH_KEY $SFM_USERNAME@$MASTER_SERVER "rm $BUSY_DIR/$FULLHOSTNAME; touch $IDLE_DIR/$FULLHOSTNAME"
 					fi
 				ssh -i $SSH_KEY $SFM_USERNAME@$MASTER_SERVER "rm $BUSY_DIR/$FULLHOSTNAME; touch $IDLE_DIR/$FULLHOSTNAME"
 				workToDo=0

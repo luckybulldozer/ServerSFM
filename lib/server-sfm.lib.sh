@@ -2,14 +2,14 @@
 # server-sfm.lib
 
 LIBDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-echo "Installer says libdir= $LIBDIR"
+#echo "Installer says libdir= $LIBDIR"
 source $LIBDIR/dsCommon.lib.sh
 
-echo "                                     _____ ________  ___   "
-echo "     ________  ______   _____  _____/ ___// ____/  |/  /   "
-echo "    / ___/ _ \/ ___/ | / / _ \/ ___/\__ \/ /_  / /|_/ /    "
-echo "   (__  )  __/ /   | |/ /  __/ /   ___/ / __/ / /  / /     "
-echo "  /____/\___/_/    |___/\___/_/   /____/_/   /_/  /_/  0.1.0"
+echoGood "                                     _____ ________  ___   "
+echoGood "     ________  ______   _____  _____/ ___// ____/  |/  /   "
+echoBad "    / ___/ _ \/ ___/ | / / _ \/ ___/\__ \/ /_  / /|_/ /    "
+echoBad "   (__  )  __/ /   | |/ /  __/ /   ___/ / __/ / /  / /     "
+echoGood "  /____/\___/_/    |___/\___/_/   /____/_/   /_/  /_/  0.1.0"
 echo ""
 echo "Booting SFM..."
 
@@ -26,11 +26,12 @@ SFM_USERNAME=$(readPrefs username);
 
 #location of the install archive which becomes the working directory.  
 SSFM_INSTALL_DIR=$(readPrefs ssfmInstallDir)
-echo "Trying to assign SSFM_INSTALL_DIR to $SSFM_INSTALL_DIR"
+echo ""
+echoGood "Assigning SSFM_INSTALL_DIR to $SSFM_INSTALL_DIR"
 
 #this is the same as the installer dir, to conform to legacy where the "render server" was located somewhere else, now we work in the install directory to ease a putting things all over the users computer.
 SERVER_WORKDIR=$(readPrefs serverWorkDir)
-echo "Trying to assing SERVER_WORKDIR to $SERVER_WORKDIR"
+echoGood "Assinging SERVER_WORKDIR to $SERVER_WORKDIR"
 
 
 #local jpeg folder attributes
@@ -44,6 +45,7 @@ MATCH_LIST_DIR=$IMG_LOG_DIR/matches
 #client "render server" attributes
 #
 #where the server lists clients
+#SERVER_CLIENTS_LIST_DIR
 SERVER_CLIENTS_LIST_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
 SERVERS_CLIENT_LIST=$SERVER_WORKDIR"/jobs/server/clients/clientlist.txt"
 
@@ -75,8 +77,6 @@ HOSTS_ONLINE=$SERVER_WORKDIR/jobs/server/clients/idle/
 #double up!
 IDLE_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/idle"
 BUSY_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/busy"
-
-#same as SERVER_CLIENTS_LIST_DIR... better name though?
 HAVE_LAUNCHED_DIR=$(readPrefs serverWorkDir)"/jobs/server/clients/have_launched"
 
 #Jobs Cue locations
@@ -95,21 +95,22 @@ TEST_PREF=$(readPrefs testPref)
 }
 
 displayPrefs() {
-echo "Displaying User Variables from prefs"
-echo "SFM_USERNAME : $SFM_USERNAME"
-echo "SSFM_INSTALL_DIR: $SSFM_INSTALL_DIR"
-echo "IMG_LOG_DIR: $IMG_LOG_DIR"
-echo "CLIENT_LIST_DIR: $CLIENT_LIST_DIR"
-echo "SERVER_WORKDIR: $SERVER_WORKDIR"
-echo "CLIENT_IMAGE_DIR: $CLIENT_IMAGE_DIR"
-echo "TEST_PREF: $TEST_PREF"
-echo "JOBS_DONE: $JOBS_DONE"
-echo "JOBS_SET: $JOBS_DONE"
-echo "PROJECT_NAME: $PROJECT_NAME"
-echo "CMVS_NAME: $CMVS_NAME"
+echo ""
+echoBad "Displaying User Variables from prefs"
+echoBad "SFM_USERNAME : $SFM_USERNAME"
+echoBad "SSFM_INSTALL_DIR: $SSFM_INSTALL_DIR"
+echoBad "IMG_LOG_DIR: $IMG_LOG_DIR"
+echoBad "CLIENT_LIST_DIR: $CLIENT_LIST_DIR"
+echoBad "SERVER_WORKDIR: $SERVER_WORKDIR"
+echoBad "CLIENT_IMAGE_DIR: $CLIENT_IMAGE_DIR"
+echoBad "TEST_PREF: $TEST_PREF"
+echoBad "JOBS_DONE: $JOBS_DONE"
+echoBad "JOBS_SET: $JOBS_DONE"
+echoBad "PROJECT_NAME: $PROJECT_NAME"
+echoBad "CMVS_NAME: $CMVS_NAME"
 
-echo "Hit ENTER to continue, or CTRL-C to exit"
-read nothing
+pauseWarning
+
 }
 
 
@@ -117,17 +118,21 @@ initRm () {
 
 echo ""
 echoBad "About to rm pretty much all NON jpeg in $SOURCE_IMAGE_DIR."
+echoGood "(just keep only your jpegs in here, and they should STILL be a back up!)"
 ls -1 | sed '/[jJ][pP][gG]*$/d'
 
-echo "ENTER or CTRL-C to fail"
-read nothing_again
+pauseWarning
 
 #once working should take a lot more general approach
-
-rm -fr $IMG_LOG_DIR/match* $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists/ $IDLE_DIR/* $SOURCE_IMAGE_DIR/*.tar 
+#$IMG_LOG_DIR/match*
+rm -fr  $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists/  $SOURCE_IMAGE_DIR/*.tar 
 
 }
 
+## This shouldn't be in here, just putting back to try and fix things!
+initClientDirs () {
+mkdir -pv $SFM_WORK_DIR/iplog $SFM_WORK_DIR/imglogdir/matches $SOURCE_IMAGE_DIR/siftlists
+}
 
 getImgList () {
 									
@@ -142,29 +147,36 @@ assignClientRange () {
 #was far more complicated when starting up EC2 instances
 
 #This is just inited from...
-echo "Server List is: `cat $SERVERS_CLIENT_LIST`"
-NUMBER_OF_SERVERS=$(cat $SERVERS_CLIENT_LIST | sed '/^\s*$/d' | wc -l)
+echoGood "Server List is:" 
+ls -1 $HAVE_LAUNCHED_DIR
+echo""
+NUMBER_OF_SERVERS=$(ls -1 $HAVE_LAUNCHED_DIR | wc -l)
 
 }
 
 purgeFilesInRemoteProcessingDirectories () {
 
-echo "About to rm all images in temporary client directories..."
+echoBad "About to rm all images in temporary client directories..."
 
-for i in `cat $SERVERS_CLIENT_LIST`; do
+for i in `ls -1 $HAVE_LAUNCHED_DIR`; do
 	if [ -z $JOB_LOCATION ]
 		then
 			echo "failed to find \$JOB_LOCATION variable, this could be fatal" ; exit 1 ; 
 		else
-			ssh -i $SSH_KEY $SFM_USERNAME@$i "ls -l $JOB_LOCATION*"
-			echo "Confirm remove ALL contents of this directory y/N?"
+			ssh -i $SSH_KEY $SFM_USERNAME@$i "ls $JOB_LOCATION*"
+			echo ""
+			echo "Confirm remove `echoBad ALL` contents of this directory `echoGood y`/`echoBad N`?"
+		 	printf ">"
 		 	read delConfirm
+		 		if [ -z $delConfirm ]
+		 		then echoBad "Not deleting - exiting" ; exit 1 ; fi
 		 		if [ $delConfirm == "y" ] 
 		 			then 
 		 				echo "About to delete directory contents"
 						ssh -i $SSH_KEY $SFM_USERNAME@$i "rm -v $JOB_LOCATION*" 
+						echoBad "gone..."
 		 			else
-		 				echo "Not deleting" ; exit 1 ;
+		 				echoBad "Not deleting - exiting" ; exit 1 ;
 		 		fi			 
 		fi 		
 done
@@ -172,153 +184,85 @@ done
 
 
 clientInit () {
-
-SERV_PLAN=`cat $SERVERS_CLIENT_LIST | wc -l`
-SERV_ONLINE=`ls -1 $SERVER_CLIENTS_LIST_DIR | wc -l`
-echo SERV_PLAN= $SERV_PLAN SERV_ONLINE= $SERV_ONLINE
-
+mkdir -p $SOURCE_IMAGE_DIR/siftlists
+mkdir -p $SOURCE_IMAGE_DIR/imglogdir/matches
+SERV_PLAN=`ls -1 $HAVE_LAUNCHED_DIR | wc -l`
+SERV_ONLINE=`ls -1 $IDLE_DIR | wc -l`
+echo ""
+printf "Servers Scheduled: %03d Servers OnLine %02d. ." $SERV_PLAN $SERV_ONLINE     
+#something wrong here if one host is still BUSY...
 while [ "$SERV_ONLINE" -lt "$SERV_PLAN" ]
 	do
-	    echo "Still not enought Servers launched..."
-	    sleep 1
+	    #echo "Still not enought Servers launched..."
+	    printf "\rServers Scheduled: %03d Servers OnLine %02d .." $SERV_PLAN $SERV_ONLINE
+	    sleep .5
+	    printf "\rServers Scheduled: %03d Servers OnLine %02d . " $SERV_PLAN $SERV_ONLINE     
 	    SERV_ONLINE=`ls -1 ~/sfm/online_servers 2>/dev/null | wc -l`
-	    echo SERV_ONLINE = $SERV_ONLINE
 done
-
+echo ""
 echo "looks like all Servers are Online!"
 
 }
 
-
-
-##                                 ###   ##
-##                               ## ##   ##
-##                             ##   ##   ##
-##                                  ##   ##
-##                                  ##   ##
-                           initRemoteServers () {
-
-
+						initRemoteServers () {
 echo "LS'n servers:"
-for i in `cat $SERVERS_CLIENT_LIST` ;do 
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ;do 
 # this line removes the ip from knownhosts to prevent a Spoof Login
     ssh-keygen -F "~/.ssh/known_hosts" -R $i
-#	ping -c 1 $i
-#	scp -i $SSH_KEY ~/sfm/server_sfm/launch_sh_server.sh $SFM_USERNAME@$i:~/sfm/server_sfm/
-#	scp -i $SSH_KEY ~/sfm/server_sfm/sh_server.sh $SFM_USERNAME@$i:~/sfm/server_sfm/
-#	scp -i $SSH_KEY ~//sfm/server_sfm/server_sfm-sfm.lib $SFM_USERNAME@$i:~/sfm/server_sfm/
-# copy yrself yo!
-
-
-###################################################
-#### we don't need to do this anymore ****
-####	scp -i $SSH_KEY $SSFM_INSTALL_DIR $SFM_USERNAME@i:$CLIENT_WORKDIR/
-###################################################
-#	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/SET"
-#	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/SET"
-# 	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p ~/JOBS/DONE"
-# 	ssh -i $SSH_KEY $SFM_USERNAME@$i "mkdir -p $CLIENT_WORKDIR"
 done
 
 }
 
-#scp -i ~/dloud.pem -r $1 $SFM_USERNAME@10.0.0.164:~/
-#40r
 
-
-
-
-
-
-
-
-								 #~ █████   ▓██▓ 
-								 #~ █      ▒█  █▒
-								 #~ █      █░  ▒█
-								 #~ ████▒  █    █
-								    #~ ░█▓ █  █ █
-								      #~ █ █    █
-								      #~ █ █░  ▒█
-								 #~ █░  █▓ ▒█  █▒
-								 #~ ▒███▓   ▓██▓ 
-
-								 copyImagesToRealServers () {
-
-echo in CopyImagesToRealServers
-
-echo "Tarrring"
+						 copyImagesToRealServers () {
+echo "Tarrring images in source directory;"
 tar cf imageArchive.tar --directory=$SOURCE_IMAGE_DIR/ *.[jJ][pP][gG]
 
-echo "Catting $SERVERS_CLIENT_LIST"
-cat $SERVERS_CLIENT_LIST
+echo "Listing servers that have launched;"
+ls -1 $HAVE_LAUNCHED_DIR
 
-
-for i in `cat $SERVERS_CLIENT_LIST`
-do 
-    #for j in `cat $IMG_LOG_DIR/img_list.txt` ;do	
-    #ssh-keygen -F "~/.ssh/known_hosts" -R $i 1>&2
-    	echo "SERVERS_CLIENT_LIST="$SERVERS_CLIENT_LIST 
-		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_IMAGE_DIR
-		#scp -i $SSH_KEY $j $i:$CLIENT_WORKDIR
-	#done
+#copy image set as archive to clients
+for i in `ls -1 $HAVE_LAUNCHED_DIR`
+	do 
+    		scp -i $SSH_KEY imageArchive.tar $i:$CLIENT_IMAGE_DIR
 done
-wait
 
-count=1
-for i in `cat $SERVERS_CLIENT_LIST`
+wait  # for all archive to get copied
+
+
+#make an array of all the servers that have launched.
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	archiveArray[$count]=$i
+	echo "Checking Array in creation:" ${archiveArray[$count]} "Count=$count"
+	((count++))
+done
+
+
+
+#unarchive these on the clients (this should be part of above too)
+count=0
+for i in "${archiveArray[@]}"
 do
-		
-			CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
-			echo server $CURRENT_SERVER number $i
-
-			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_WORKDIR
-
-			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $JOB_LOCATION ; tar xf $JOB_LOCATION/imageArchive.tar &"
-			((count++))
+		CURRENT_SERVER=${archiveArray[$count]} 
+		echo "Server: $CURRENT_SERVER, Array Count $count"
+		echoGood "Just about to unarchive the images on client: $i"
+		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $JOB_LOCATION ; tar xf $JOB_LOCATION/imageArchive.tar &"
+		((count++))
 done
 }
 
 
-
-
-#50-r
-copyImagesToFakeServers () {
-for i in `cat $SERVERS_CLIENT_LIST`
-do 
-     for j in `cat $IMG_LOG_DIR/img_list.txt`
-	do
-	
-	cp -v $j $CLIENT_LIST_DIR/fake_servers/$i
-
-# this works... but it makes the sifts back in the original locaiton!!!
-#     	ln -s $SOURCE_IMAGE_DIR/$j $CLIENT_LIST_DIR/fake_servers/$i/$j
-
-	done
-done
-}
-
-								              #~ 
-								  #~ ▒███▒  ▓██▓ 
-								 #~ ░█▒  ▓ ▒█  █▒
-								 #~ █▒     █░  ▒█
-								 #~ █▒███  █    █
-								 #~ █▓  ▓█ █  █ █
-								 #~ █    █ █    █
-								 #~ █    █ █░  ▒█
-								 #~ ▒▓  ▓█ ▒█  █▒
-								  #~ ▓███   ▓██▓ 
-
-								siftListsPerServer () {
-
+						siftListsPerServer () {
 
 images=$NUMBER_OF_IMAGES
 servers=$NUMBER_OF_SERVERS
 	if [[ $servers -lt 1 ]] 
 		then
-			echo "you have no servers"
+			echo "You have no servers, exiting."
 			exit 1
 		else 
-			echo "you have servers..."
+			echo "You have: $servers servers."
 	fi
 ips=$(( $images / $servers ))
 remainder=$(( $images % $servers ))
@@ -327,7 +271,7 @@ echo Images Per Segment $ips Remainder: $remainder
 count=1
 	for ((i=1 ; i<=$servers; i++)) ; 
 	do
-		echo "siftListsPerServer" loop number $i
+		#echo "siftListsPerServer" loop number $i
 			if [ "$remainder" -ge 1 ]
 		then 
 		# we still have a remainder
@@ -338,136 +282,122 @@ count=1
 	fi	
 		
 	for ((j=1 ; j<= $(( $ips + $add )) ; j++))
-		do echo $i $j
-			#removed TESTLOCAL VAR
-					sed -n "$count"p $IMG_LOG_DIR/img_list.txt >> siftlists/"$i"_siftlist.txt
-				
-						#sed -n "$count"p $IMG_LOG_DIR/img_list.txt >> siftlists/"$i"_siftlist.txt
+		do #echo $i $j
+			sed -n "$count"p $IMG_LOG_DIR/img_list.txt >> siftlists/"$i"_siftlist.txt
 			((count++))
 		done
 	((remainder--))
 	done
-# That's assuming each machine is the same speed!, otherwise we'll need load balancing!
+# Matching has load balancing since it takes longer... one day sifts will too.
 }
-								 #~ ██████  ▓██▓ 
-								     #~ ▓▓ ▒█  █▒
-								     #~ █  █░  ▒█
-								    #~ ▒█  █    █
-								    #~ █░  █  █ █
-								   #~ ▒█   █    █
-								   #~ █░   █░  ▒█
-								  #~ ▒█    ▒█  █▒
-								  #~ █▒     ▓██▓ 
 
-								copyListsToRealServers () {
-	
-echo "In copyListsToRealServers"
 
-j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1}'`
+								copyListsToServers () {
+
+
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	copyListArray[$count]=$i
+	((count++))
+done
+
+j=`ls -1 $HAVE_LAUNCHED_DIR | wc -l`
 	for (( i=1; i <= $j ; i++ ))
 		do
-			CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST` 
-			echo server $CURRENT_SERVER number $i
-
-			scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$JOB_LOCATION
+			serverItterator=$(( i - 1 ))
+			CURRENT_SERVER=${archiveArray[$serverItterator]}  
+			echo Server: $CURRENT_SERVER, Number: $i
+			
+			fping $CURRENT_SERVER
+			if [[ "$?" -ne "0" ]] ; then
+				echo "Client will be rm'd from busy/idle/have launched" 
+				echo rm $BUSY_DIR/$CURRENT_SERVER $HAVE_LAUNCHED_DIR/$CURRENT_SERVER $IDLE_DIR/$CURRENT_SERVER
+			else
+				echoGood "Server exists!"
+				echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$JOB_LOCATION 
+				scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$JOB_LOCATION 
+			fi			
 		done
-echo "leaving cLTRS"
 }
 
-
-
-											              #~ 
-								 #~ ░████░  ▓██▓ 
-								 #~ █▒  ▒█ ▒█  █▒
-								 #~ █    █ █░  ▒█
-								 #~ █▒  ▒█ █    █
-								  #~ ████  █  █ █
-								 #~ █▒  ▓█ █    █
-								 #~ █    █ █░  ▒█
-								 #~ █▓  ▒█ ▒█  █▒
-								 #~ ░████░  ▓██▓
 								 				  
-								startRealSifts () {
+					startSifts () {
 
-j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	startSiftArray[$count]=$i
+	((count++))
+done
 
-	for (( i=1 ; i <= $j ; i++)) ; do
-		CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
-		echo "Creating SiftSH for $CURRENT_SERVER"
-		
+j=${#startSiftArray[@]} 
+echo "The size of J is $j"
+for (( i=1 ; i <= $j ; i++)) ; do
+	siftArrayItterator=$(( i -1 ))
+	CURRENT_SERVER=${startSiftArray[$siftArrayItterator]}
+	echo "Creating SiftSH for Server $CURRENT_SERVER as count of $j"
 
-		echo cd $JOB_LOCATION > $JOBS_SET/"$i"_sift_JOB.sh
-		echo "echo \"Executing script\"" >>$JOBS_SET/"$i"_sift_JOB.sh
-		echo VisualSFM siftgpu "$i"_siftlist.txt >> $JOBS_SET/"$i"_sift_JOB.sh
-#		echo scpHome *.sift $SOURCE_IMAGE_DIR 	 >> $JOBS_SET/"$i"_sift_JOB.sh
-		echo scp -i $SSH_KEY -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
+	echo cd $JOB_LOCATION > $JOBS_SET/"$i"_sift_JOB.sh
+	echo "echo \"Executing script\"" >>$JOBS_SET/"$i"_sift_JOB.sh
+	echo VisualSFM siftgpu "$i"_siftlist.txt >> $JOBS_SET/"$i"_sift_JOB.sh
+	echo scp -i $SSH_KEY -r *.sift $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR >> $JOBS_SET/"$i"_sift_JOB.sh
 
-	
-		chmod +x $JOBS_SET/"$i"_sift_JOB.sh
-		
-		scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
+	chmod +x $JOBS_SET/"$i"_sift_JOB.sh
 
-		IN_FILE="$i"_sift_JOB.sh 
-		ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP/\$RFILE $JOBS_PENDING/\$RFILE"
+	scp -i $SSH_KEY $JOBS_SET/"$i"_sift_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 
-#		scpToCueIp "$i"_JOB.sh $CURRENT_SERVER
-		
-		mv $JOBS_SET/"$i"_sift_JOB.sh $JOBS_DONE/
-	done
+	IN_FILE="$i"_sift_JOB.sh 
+	ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE ; mv $JOBS_SETUP/\$RFILE $JOBS_PENDING/\$RFILE"
+
+	mv $JOBS_SET/"$i"_sift_JOB.sh $JOBS_DONE/
+done
 }
 
-#80R
-
-												              #~ 
-								  #~ ███▓   ▓██▓ 
-								 #~ █▓  █▒ ▒█  █▒
-								 #~ █    █ █░  ▒█
-								 #~ █    █ █    █
-								 #~ █▓  ▓█ █  █ █
-								  #~ ███▒█ █    █
-								     #~ ▒█ █░  ▒█
-								 #~ ▓  ▒█░ ▒█  █▒
-								 #~ ▒███▒   ▓██▓ 				
 
 								waitForSiftsToFinish () {
 
 DIR_SIFTS=`ls -1 $SOURCE_IMAGE_DIR/*.sift 2>/dev/null | wc -l`
 DIR_PEGS=`ls -1 $SOURCE_IMAGE_DIR/*.[jJ][pP][gG] | wc -l`
 echo DIR_SIFTS= $DIR_SIFTS DIR_PEGS= $DIR_PEGS
-#
 
 while [ "$DIR_SIFTS" -lt "$DIR_PEGS" ]
 do
-    echo "Still not enought sifts back..."
-    sleep 1
+#     printf "Still not enought sifts back. ."
+#     sleep 1
+#     printf "\rStill not enought sifts back. ."
     DIR_SIFTS=`ls -1 $SOURCE_IMAGE_DIR/*.sift 2>/dev/null | wc -l`
-    echo DIR_SIFTS = $DIR_SIFTS
+
+ProgressBar $DIR_SIFTS $DIR_PEGS
+
+#     echo DIR_SIFTS = $DIR_SIFTS
 done
-echo "looks like yr done"
+echo "All sifts are returned."
 
 }
 
-					                     
-				#				 ███     ▓██▓   ▓██▓ 
-				#				   █    ▒█  █▒ ▒█  █▒
-				#				   █    █░  ▒█ █░  ▒█
-				#				   █    █    █ █    █
-				#				   █    █    █ █    █
-				#				   █    █░  ▒█ █░  ▒█
-				# 				   █    ▒█  █▒ ▒█  █▒
-				#				 █████   ▓██▓   ▓██▓ 
-
 								 getInverseSifts () {
 
-j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
-for (( i=1 ; i <= $j ; i++)) ; do
+#make an array of all the servers that have launched.
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	inverseSiftsArray[$count]=$i
+	echo "Checking Array in creation:" ${inverseSiftsArray[$count]} "(Count=)"$count
+	((count++))
+done
 
-CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
-#sould become function (getLoopCurrentServerID#
+echo "========================="
+
+count=0
+j=${#inverseSiftsArray[@]}
+echo "size of inverseSiftsArray is: $j"
+for (( i=1 ; i <= $j ; i++)) ; do
+	inverseSiftsItterator=$(( i - 1))
+	CURRENT_SERVER=${inverseSiftsArray[$inverseSiftsItterator]}
+	echo "Checking Current Server :" $CURRENT_SERVER "(Count=)"$inverseSiftsItterator
+
+	#sould become function (getLoopCurrentServerID#
 	cat <<EOF > $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh
 			cd $CLIENT_WORKDIR
 			echo MY PWD IS... $PWD
-			#rm getRemainingSifts.txt   
 			MAIN=".sift"
 			INVERT=".JPG"
 			ls -1 *.sift > .main_list
@@ -481,16 +411,13 @@ CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 			sdiff .invert_no_ext .main_no_ext | grep "<" | sed 's/<//g' > .outlist_prext.txt
 			for i in \`cat .outlist_prext.txt\` 
 				do 
-					#cp /media/ephemeral/\$i.sift . ;done 
 					scp -i $SSH_KEY $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAGE_DIR/\$i.sift . ;
 					done
 			rm .outlist_prext.txt
-			#touch $SOURCE_IMAGE_DIR/got_sifts_$i
-			ssh -i $SSH_KEY -o "StrictHostKeyChecking no" $SFM_USERNAME@$MASTER_SERVER	 "touch $SOURCE_IMAGE_DIR/got_sifts_$i"
+			ssh -i $SSH_KEY $SFM_USERNAME@$MASTER_SERVER "touch $SOURCE_IMAGE_DIR/got_sifts_$i"
 EOF
 
 	chmod +x $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh
-	#mv $HOME/RENDER_SERVER/JOBS_SETUP/"$i"_SIFT_MOVE_JOB.sh $HOME/RENDER_SERVER/JOBS_PENDING/
 
 	scp -i $SSH_KEY $JOBS_SET/"$i"_SIFT_MOVE_JOB.sh $CURRENT_SERVER:$JOBS_SETUP
 
@@ -500,50 +427,35 @@ EOF
 done
 
 }
-                
-								# ███    ███     ▓██▓ 
-								#   █      █    ▒█  █▒
-								#   █      █    █░  ▒█
-								#   █      █    █    █	
-								#   █      █    █  █ █
-								#   █      █    █    █
-								#   █      █    █░  ▒█
-								#   █      █    ▒█  █▒
-								# █████  █████   ▓██▓ 
+
 
 								 waitForSiftsToCopy () {
+NUMBER_OF_SERVERS=`ls -1 $HAVE_LAUNCHED_DIR | wc -l`
 DOES_SIFT_EXIST=0
+
+echo "Waiting for sifts to copy back to clients."
+
 while [ "$DOES_SIFT_EXIST" -lt "$NUMBER_OF_SERVERS" ]
 do 
-    echo "Waiting for sifts to copy..."
-    echo "DOES_SIFT_EXIST = $DOES_SIFT_EXIST"
-DOES_SIFT_EXIST=`ls -1 $SOURCE_IMAGE_DIR/*got_sifts* 2>/dev/null | wc -l`
-    sleep 1
+#    echo "DOES_SIFT_EXIST = $DOES_SIFT_EXIST"
+	DOES_SIFT_EXIST=`ls -1 $SOURCE_IMAGE_DIR/*got_sifts* 2>/dev/null | wc -l`
+    ProgressBar $DOES_SIFT_EXIST $NUMBER_OF_SERVERS
+#    sleep 1
 done
 echo "All Sifts at home exist"
 }
 
-								 #~ ███    ▒████   ▓██▓ 
-								   #~ █    █▒  ▓█ ▒█  █▒
-								   #~ █         █ █░  ▒█
-								   #~ █        ▒█ █    █
-								   #~ █       ░█▒ █  █ █
-								   #~ █      ░█▒  █    █
-								   #~ █     ▒█▒   █░  ▒█
-								   #~ █    ▒█░    ▒█  █▒
-								 #~ █████  ██████  ▓██▓ 
-
 									getMatchListTotal () {
-
+### This needs a bit of work... creates a few incorrect matches, eg, just one match pair instead of two.
 
 #iterate through each primary image
 TOTALCOUNT=0
 
+#not sure why I did this... nasty code.
 OLD_IFS=$IFS
 IFS=$'\r\n' GLOBIGNORE='*' :;
 FILENAMEARRAY=($(cat $IMG_LOG_DIR/img_list.txt))
 
-#      c = 0 ; 
 for (( c = 1; c <= $IMAGES; c++ ))
 	do
 	MATCHBEGIN=$(( c + 1 ))
@@ -553,16 +465,11 @@ for (( c = 1; c <= $IMAGES; c++ ))
 		for (( $MATCHLOOP ; $MATCHLOOP<=$IMAGES; MATCHLOOP++ ))
 			do 
 			((TOTALCOUNT++))
-			#SECONDPAIR=`sed -n "$MATCHLOOP"p $IMG_LOG_DIR/img_list.txt`
 			SECONDPAIR=${FILENAMEARRAY[$MATCHLOOP]}
 			MAINPAIR=${FILENAMEARRAY[$c]}
-			#MAINPAIR=`sed -n "$c"p $IMG_LOG_DIR/img_list.txt`
-			#	if [ "$TESTLOCAL" -eq 0 ]
-			#then 
+
 				echo $MAINPAIR $SECONDPAIR >> $MATCH_LIST_DIR/.matchtmp.txt
-			#else
-			#echo $SOURCE_IMAGE_DIR/$MAINPAIR $SOURCE_IMAGE_DIR/$SECONDPAIR >> $MATCH_LIST_DIR/.matchtmp.txt
-			#	fi		
+	
 		done
 done
 IFS=$OLD_IFS
@@ -580,17 +487,67 @@ echo "Remainder ="$REMAINDER
 
 BenchmarkMatch (){
 
-#servers are benchmarked here to add to speed matching.
-#declare -a BENCHMARK_SERVER=( 262 252 146 )
-#declare -a BENCHMARK_SERVER=( 125)
-serverCount=0
-for i in `cat $SERVERS_CLIENT_LIST` ; do
-	echo currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
-    currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
-    BENCHMARK_SERVER[serverCount]=$currentServerMatchBenchmark
-	((serverCount++))
+
+#make an array of our lunched servers for matching
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	matchArray[$count]=$i
+	((count++))
 done
+
+#get their matchbenchmark and put it in currentServerMatchBenchmark[]
+serverCount=0
+for i in "${matchArray[@]}" ; do
+    #echo currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
+    currentServerMatchBenchmark=`ssh -i $SSH_KEY $SFM_USERNAME@$i "cat $CLIENT_WORKDIR/matchSpeed"`   
+    BENCHMARK_SERVER[$serverCount]=$currentServerMatchBenchmark
+    ((serverCount++))
+done
+
 echo "Server Benchmarks are: ${BENCHMARK_SERVER[@]}"
+
+#find fastest machine...
+
+low=0
+count=0
+lowIndex=0
+
+for i in "${BENCHMARK_SERVER[@]}"
+do 
+j=${BENCHMARK_SERVER[$count]}
+echo "j = $j"   
+        if [ "$low" -eq "0" ]
+                then low=$j
+                fi  
+
+        if [ $j -lt $low ]
+                then low=$j
+                     lowIndex=$count
+        fi  
+((count++))
+done
+echo lowest is $low
+
+#find their speed reciprocal by adding getting a total of the speeds and dividing by the fastest
+count=0
+sum=0
+for i in "${BENCHMARK_SERVER[@]}"
+	do
+		j=${BENCHMARK_SERVER[$count]}
+		echo "J is $j, count =$count"
+		reciprocalArray[$count]=`echo "scale=5; $low / $j" | bc`
+		echo "scale=5; $low / $j" | bc
+		echo "ReciprocalArray $count = " ${reciprocalArray[$count]}
+		sum=`echo "scale=5;  ${reciprocalArray[$count]} + $sum" | bc`
+((count++))
+done
+
+#work out the total reciprocal
+echo "sum =$sum"
+totalReciprocalFactor=`echo "scale=5 ; 1 / $sum " | bc`
+echo $totalReciprocalFactor
+
+
 
 NUMBER_OF_SERVERS_BENCHMARK=${#BENCHMARK_SERVER[@]}
 echo "Number of servers benchmarked" $NUMBER_OF_SERVERS_BENCHMARK
@@ -599,12 +556,26 @@ MATCH_LIST=$MATCH_LIST_DIR/.matchtmp.txt
 MATCH_LIST_TOTAL=`wc -l $MATCH_LIST | awk '{ print $1 }'`
 END_LIST=$((MATCH_LIST_TOTAL - 1))
 
-echoBad "Stopping from BenchmarkMatch for a mo..."
+
+#create an array of those factored speeds
+count=0
+totalImages=$MATCH_LIST_TOTAL
+for i in "${BENCHMARK_SERVER[@]}"
+	do
+		j=${benchArray[$count]}
+		benchArrayFactored[$count]=`echo "scale=5 ; ${reciprocalArray[$count]} * $totalReciprocalFactor " | bc`
+		benchImagesFactored[$count]=`echo "scale=5 ; $totalImages * ${benchArrayFactored[$count]}" | bc`
+		echo Original : $j Adjusted : ${benchArrayFactored[$count]} : perCluster ${benchImagesFactored[$count]} 
+((count++))
+done
+
+
+
 
 for (( i=0; i < $NUMBER_OF_SERVERS_BENCHMARK ; i++ ))
-do
-        k=${BENCHMARK_SERVER[$i]}
-        ((MATCH_TOTAL=MATCH_TOTAL + k ));
+	do
+		k=${BENCHMARK_SERVER[$i]}
+		((MATCH_TOTAL=MATCH_TOTAL + k ));
 done
 
 START_LINE=1
@@ -612,25 +583,19 @@ START_LINE=1
 for (( i=0; i < $NUMBER_OF_SERVERS_BENCHMARK ; i++))
 do
         CURRENT_BENCHMARK=${BENCHMARK_SERVER[$i]}
-	#num=$(echo 
-        #num=`echo "($CURRENT_BENCHMARK / $MATCH_LIST_TOTAL)" | bc`
-        #MATCH_CUT=`echo "($num * $MATCH_LIST_TOTAL)" | bc`
-        #dFRAMES=`echo "($rFRAMES * $FPS)" | bc`
+	   num=${benchImagesFactored[$i]}
+        num=${num%.*} #convert to dirty int rounding...
 
-	num=$(echo "scale=5; $CURRENT_BENCHMARK / $MATCH_TOTAL" | bc)
-        MATCH_CUT=$(echo "scale=1; $num * $MATCH_LIST_TOTAL" | bc);
+        MATCH_CUT=$num       
 
 
-	
-	#num=$(echo "scale=5; $CURRENT_BENCHMARK / $TOTAL" | bc)
-        #MATCH_CUT=$(echo "scale=1; $num * $MATCH_LIST_TOTAL" | bc);
+		MATCH_INC=${MATCH_CUT%.*}
+		END_ARRAY_NUM=$(( NUMBER_OF_SERVERS_BENCHMARK ))
+		FILENAME=matchlist_$((i +1)).txt
+		echo FILENAME IS $FILENAME
+			INC_I=$((i +1 ))
+		echo i=$i INC_I=$INC_I END_ARRAY_NUM=$END_ARRAY_NUM
 
-	MATCH_INC=${MATCH_CUT%.*}
-	END_ARRAY_NUM=$(( NUMBER_OF_SERVERS_BENCHMARK ))
-	FILENAME=matchlist_$((i +1)).txt
-	echo FILENAME IS $FILENAME
-INC_I=$((i +1 ))
-	echo i=$i INC_I=$INC_I END_ARRAY_NUM=$END_ARRAY_NUM
 	if [[ INC_I -ne END_ARRAY_NUM ]]
 	then
 		echo LIST $FILENAME
@@ -651,7 +616,13 @@ INC_I=$((i +1 ))
 		fi
 echo "CS"
 
-CURRENT_SERVER=`sed -n "$INC_I"p $SERVERS_CLIENT_LIST`
+#read nothing
+
+#CURRENT_SERVER=`sed -n "$INC_I"p $SERVERS_CLIENT_LIST`
+echo "matchArray i = ${matchArray[$i]} "
+CURRENT_SERVER=${matchArray[$i]}
+#CURRENT_SERVER=`sed -n "$INC_I"p $SERVERS_CLIENT_LIST`
+
 
 echo "CS_END" 
 echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$INC_I.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
@@ -661,24 +632,26 @@ done
 
 }
 		
-								 #~ ███    ▒████   ▓██▓ 
-								   #~ █    █▒  ▓█ ▒█  █▒
-								   #~ █         █ █░  ▒█
-								   #~ █        ▒█ █    █
-								   #~ █      ███░ █  █ █
-								   #~ █        ▓█ █    █
-								   #~ █         █ █░  ▒█
-								   #~ █    █░  ▓█ ▒█  █▒
-								 #~ █████  ▒████   ▓██▓ 
 
 									makeMatchLists () {
 getMatchListTotal
 
+
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	makeMatchListsArray[$count]=$i
+	((count++))
+done
+
+
 # make the lists for each server
-for (( c=1; c<=$NUMBER_OF_SERVERS; c++ ))
+#for (( c=1; c<=$NUMBER_OF_SERVERS; c++ ))
+
+for (( c=0; c<=$NUMBER_OF_SERVERS; c++ ))
 	do
 	echo "$c ****************************"
 	STARTLINE=$(( c * PER_SERVER - PER_SERVER + 1))
+
 	if [ "$c" -eq $NUMBER_OF_SERVERS ]
 	then 
 		echo "I'm on the last loop!!!"
@@ -690,7 +663,11 @@ for (( c=1; c<=$NUMBER_OF_SERVERS; c++ ))
         	echo $STARTLINE $ENDLINE
         	sed -n "$STARTLINE","$ENDLINE"p $MATCH_LIST_DIR/.matchtmp.txt  > $SOURCE_IMAGE_DIR/matchlist_$c.txt 
 	fi
-CURRENT_SERVER=`sed -n "$c"p $SERVERS_CLIENT_LIST`
+	
+currentServer=$(( c - 1 ))
+CURRENT_SERVER=${makeMatchLists[$currentServer]}
+
+
 echo "I think we fail here?"
 echo scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$c.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
 scp -i $SSH_KEY $SOURCE_IMAGE_DIR/matchlist_$c.txt $SFM_USERNAME@$CURRENT_SERVER:$CLIENT_IMAGE_DIR
@@ -711,13 +688,20 @@ done
 								startMatchesOnServers () {
 
 
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	startMatchesOnServers[$count]=$i
+	((count++))
+done
 
 
 
-j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
+#j=`wc -l $SERVERS_CLIENT_LIST | awk '{ print $1 }'`
+j=`ls -1 $HAVE_LAUNCHED_DIR | wc -l`
 for (( i=1 ; i <= $j ; i++ )) ; do 
-
-	CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
+	serverItterator=$(( i - 1 ))
+	CURRENT_SERVER=${archiveArray[$serverItterator]}
+	#CURRENT_SERVER=`sed -n "$i"p $SERVERS_CLIENT_LIST`
 
 	cat <<EOF > $JOBS_SET/"$i"_MATCH_JOB.sh
 	cd $CLIENT_IMAGE_DIR
@@ -739,15 +723,6 @@ done
 }
 							
 							
-								  #~ ███    █████   ▓██▓ 
-								   #~ █    █      ▒█  █▒
-								   #~ █    █      █░  ▒█
-								   #~ █    ████▒  █    █
-								   #~ █       ░█▓ █  █ █
-								   #~ █         █ █    █
-								   #~ █         █ █░  ▒█
-								   #~ █    █░  █▓ ▒█  █▒
-								 #~ █████  ▒███▓   ▓██▓ 
 
 								waitForMatchesToExport () {
 DOES_MAT_EXIST=0
@@ -761,11 +736,6 @@ do
   echo "All Match Exports at home exist"
 }
 
-copyFakeSiftsToHosts () {
-
-:
-# doing this in startFakeSifts function
-}
 
 								 #~ ███     ▒███▒  ▓██▓ 
 								   #~ █    ░█▒  ▓ ▒█  █▒
@@ -798,9 +768,20 @@ done
 								   #~ █     ▒█    ▒█  █▒
 								 #~ █████   █▒     ▓██▓ 
 
+
+
 function copyMatchesToRealServers () {
 
-for i in `cat $SERVERS_CLIENT_LIST`
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	copyMatchesToServers[$count]=$i
+	((count++))
+done
+
+
+#for i in `cat $SERVERS_CLIENT_LIST`
+
+for i in "${copyMatchesToServers[@]}"
 do 
 scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR/task_processing
 #     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
@@ -836,6 +817,14 @@ echo "Done SFM"
 
 copyCMVSDirToServers () {
 
+#
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	copyCMVSDirToServers[$count]=$i
+	((count++))
+done
+
+
 echo "Tarring CMVS dirs"
 echo "I am in directory..."  $PWD  "-- end PWD"
 
@@ -844,17 +833,27 @@ echo $CMVS_NAME
 
 tar cf cmvs.tar $CMVS_NAME
 
-for i in `cat $SERVERS_CLIENT_LIST`
-do 
-		scp -i $SSH_KEY cmvs.tar $i:$CLIENT_IMAGE_DIR &
-	done
+
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+	copyCMVSDirToServers[$count]=$i
+	scp -i $SSH_KEY cmvs.tar $i:$CLIENT_IMAGE_DIR &
+	((count++))
+done
 wait
 
-count=1
-for i in `cat $SERVERS_CLIENT_LIST`
-do
-		
-			CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
+# for i in `cat $SERVERS_CLIENT_LIST`
+# do 
+# 		scp -i $SSH_KEY cmvs.tar $i:$CLIENT_IMAGE_DIR &
+# 	done
+# wait
+
+count=0
+for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
+#for i in `cat $SERVERS_CLIENT_LIST`
+#do
+			CURRENT_SERVER=${copyCMVSDirToServers[$count]}
+			#CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
 			echo server $CURRENT_SERVER number $i
 
 			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_IMAGE_DIR

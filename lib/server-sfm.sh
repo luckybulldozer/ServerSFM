@@ -6,7 +6,7 @@
 # all launcher apps need to have this to start
 
 LIBDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-echo "Installer says libdir= $LIBDIR"
+#echo "Installer says libdir= $LIBDIR"
 source $LIBDIR/dsCommon.lib.sh
 source $LIBDIR/server-sfm.lib.sh
 
@@ -20,9 +20,6 @@ displayPrefs
 
 #clears directories so you start fresh... could do with some alteration/options
 initRm
-
-#get makes sure all directories are available
-initDirs
 
 #gets all jpegs in the current directory for the SFM session.
 getImgList
@@ -41,13 +38,13 @@ copyImagesToRealServers
 #60
 siftListsPerServer
 #70
-copyListsToRealServers
+copyListsToServers
 #copyListsToFakeServers
 
 # START SIFT ON SERVERS
 
 #80
-startRealSifts
+startSifts
 #startFakeSifts
 #90
 waitForSiftsToFinish

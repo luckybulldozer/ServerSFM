@@ -196,8 +196,7 @@ for i in `echo $clientListPrefs` ;
 			echo "Master key copy..."			
 			echo scp -r -i $SSH_KEY $SSH_KEY $USER_NAME@$i:$SSH_KEY
 			scp -r -i $SSH_KEY $SSH_KEY $USER_NAME@$i:$SSH_KEY
-			read nothing
-			
+						
 			scp -r -i $SSH_KEY $SERVER_WORKDIR/lib/* $USER_NAME@$i:$SERVER_WORKDIR/lib
 			scp -r -i $SSH_KEY $SERVER_WORKDIR/prefs/* $USER_NAME@$i:$SERVER_WORKDIR/prefs	
 
