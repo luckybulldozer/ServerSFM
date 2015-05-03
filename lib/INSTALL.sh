@@ -98,6 +98,7 @@ echo "You have 2 options here, we can make an SSH key for you, or you can provid
 echo "Either enter the name and location of your SSH key e.g. ~/.ssh/yourkey.pem (tab completion will work), otherwise leave blank to generate the key. This will set up a key in your .ssh folder unless otherwise specified."
 echoBad "SSH Key Location or ENTER to set one up"
 read -e SSH_KEY
+
 SSH_KEY_TILDE=$(expand_tilde "$SSH_KEY")
 SSH_KEY=$SSH_KEY_TILDE
 SFM_USERNAME=`readPrefs username`
@@ -114,7 +115,14 @@ SFM_USERNAME=`readPrefs username`
 				echoGood "Removing $i from ~/ssh/known_hosts (will create a backup)"
 				ssh-keygen -R $i
 				echoGood "Connecting to $i"
-				ssh -q $i "ssh-keygen -R $i ; mkdir ~/.ssh 2>/dev/null; chmod 700 ~/.ssh; echo "$KEYCODE" >> ~/.ssh/authorized_keys; chmod 644 ~/.ssh/authorized_keys ; ssh-keygen -y -f "$SSH_KEY" > "$SSH_KEY.pub""  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working..."
+				#hostHome=$(ssh host2@host2_address 'printf $HOME')
+				#scp file host2@host2_address:$(ssh host2@host2_address 'printf $HOME')
+				JUST_KEY_NAME=${SSH_KEY##*/}
+				
+				# sequence of below...
+				#ssh -q (quiet mode) $client ;
+				#ssh-keygen -R (remove from known_hosts) that host 
+				ssh  $i "ssh-keygen -R $i ; mkdir \$HOME/.ssh 2>/dev/null; chmod 700 \$HOME/.ssh; echo "$KEYCODE" >> \$HOME/.ssh/authorized_keys; chmod 644 \$HOME/.ssh/authorized_keys ; ssh-keygen -y -f \$HOME/.ssh/"$JUST_KEY_NAME" > \$HOME/.ssh/"$JUST_KEY_NAME.pub""  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working..."
 				scp -i $SSH_KEY $SSH_KEY.pub $SFM_USERNAME@$i~/.ssh/ 			
 			done
 	# if we do
@@ -269,7 +277,7 @@ setupWorkdir
 setupUsername
 setupClientList
 setupSSHKeys
-SSH_KEY=~/.ssh/ServerSFM
+SSH_KEY=~/.ssh/serverSFM
 setupClientDirs
 setupExit
 testMachineSpeeds

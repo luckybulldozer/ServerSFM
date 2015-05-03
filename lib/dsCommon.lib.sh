@@ -106,15 +106,25 @@ function remove {
 
 function getLocalIP () {
 
-for i in {0..2} ;
-        do
-        j=`ipconfig getifaddr en$i`
-                if [ -z "$j" ]
-                        then
-                        :
-                        else addr=$j
-                fi
-        done
+OPERATING_SYSTEM=$(uname)
+
+	case $OPERATING_SYSTEM in
+        Darwin)        
+					for i in {0..2} ;
+				        do
+					        j=`ipconfig getifaddr en$i`       
+			                if [ -z "$j" ]
+        		                then
+            	            :
+                		        else addr=$j
+                			fi
+        			done
+		;;
+		Linux)
+					addr=$(hostname -I)
+		;;
+	esac
+
 echo $addr
 }
 
@@ -141,32 +151,49 @@ COLUMNS=$(tput cols)
 CURRENT_POS=$1
 TOTAL=$2
 
-COLUMNS_FACTOR=$( echo "scale = 5 ; $COLUMNS / $TOTAL " |bc )
-OUTPUT_POS=$( echo "scale = 5; $CURRENT_POS * $COLUMNS_FACTOR" | bc )
-OUTPUT_POS=${OUTPUT_POS%.*}
-((OUTPUT_POS++))
+if [[ $CURRENT_POS -gt 1 || $TOTAL -gt 1 ]]
+then
 
-SUB_POS=$(( COLUMNS - OUTPUT_POS  ))
-((SUB_POS++))
-#echo $OUTPUT_POS $SUB_POS
-if [[ "$OUTPUT_POS" -eq "0" || "$SUB_POS" -lt "1" ]]
-	then 
-		echo "### done ###"
-	else
-#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
-		RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
-#█░
-		PERCENT=$( echo "scale = 3; ( $OUTPUT_POS / $COLUMNS ) * 100" | bc )
-		PERCENT=${PERCENT%.*}
-	printf "$PERCENT %%\r"
+	COLUMNS_FACTOR=$( echo "scale = 5 ; $COLUMNS / $TOTAL " |bc )
+	OUTPUT_POS=$( echo "scale = 5; $CURRENT_POS * $COLUMNS_FACTOR" | bc )
+	OUTPUT_POS=${OUTPUT_POS%.*}
+	((OUTPUT_POS++))
+
+	SUB_POS=$(( COLUMNS - OUTPUT_POS  ))
+	((SUB_POS++))
+	#echo $OUTPUT_POS $SUB_POS
+	if [[ "$OUTPUT_POS" -eq "0" || "$SUB_POS" -lt "1" ]]
+		then 
+			echo "### done ###"
+		else
+	#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
+			RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
+	#█░
+			PERCENT=$( echo "scale = 3; ( $OUTPUT_POS / $COLUMNS ) * 100" | bc )
+			PERCENT=${PERCENT%.*}
+		printf "$PERCENT %%\r"
+	fi
+	sleep .1
 fi
-sleep .1
 }
 
 RepeatChar () {
     seq  -f $1 -s '' $2
 }
 
-
-
-
+#### Match Total Test #########
+# 
+# GetCurrentMatchProgress () {
+# 
+# VSFM_Path=$( which VisualSFM )
+# VSFM_Dir=${VSFM_Path%/VisualSFM}
+# current_VSFM_Log="$VSFM_Dir/log/"$( ls -1aqtr $VSFM_Dir/log | tail -1 )
+# #echo "Current log is : $current_VSFM_Log"
+# totalInMatchLog=$( cat $current_VSFM_Log | grep "pairs to compute match" | awk '{print $1}')
+# #echo "totalInMatchLog is " $totalInMatchLog 
+# 
+# currentMatchTotal=$(awk '!/^#.*matches/{m=gsub("matches","");total+=m}END{print total}' $current_VSFM_Log)
+# ((currentMatchTotal--))
+# echo $currentMatchTotal $totalInMatchLog
+# 
+# }

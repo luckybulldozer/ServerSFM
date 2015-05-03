@@ -13,7 +13,7 @@ source $LIBDIR/server-sfm.lib.sh
 initVars
 
 #legacy --- to delete seems to work!
-initClientDirs
+#initClientDirs
 
 FULLHOSTNAME=`getLocalIP`
 

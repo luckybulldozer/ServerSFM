@@ -728,8 +728,22 @@ done
 DOES_MAT_EXIST=0
 while [ "$DOES_MAT_EXIST" -lt "$NUMBER_OF_SERVERS" ]
 do 
-  echo "Waiting for Matches to copy..."
-  echo "DOES_MAT_EXIST = $DOES_MAT_EXIST"
+#	clear 
+		count=0
+		for (( i = 0 ; i <= $NUMBER_OF_SERVERS ; i++ ))
+			do
+			#echo "I'm here!"
+			currentMatchProgressArray[$count]=$(ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "sh $LIBDIR/GetCurrentMatchProgress.sh")
+			((count++))
+		done
+	
+for i in "${currentMatchProgressArray[@]}"
+ do 
+ 	ProgressBar $i
+ done
+ 		
+  #echo "Waiting for Matches to copy..."
+  #echo "DOES_MAT_EXIST = $DOES_MAT_EXIST"
   DOES_MAT_EXIST=`ls -1 $SOURCE_IMAGE_DIR/matches_out* 2>/dev/null | wc -l`
     sleep 1
   done
