@@ -11,6 +11,14 @@ totalInMatchLog=$( cat $current_VSFM_Log | grep "pairs to compute match" | awk '
 
 currentMatchTotal=$(awk '!/^#.*matches/{m=gsub("matches","");total+=m}END{print total}' $current_VSFM_Log)
 ((currentMatchTotal--))
+if [ "$currentMatchTotal" -lt 1 ]
+	then currentMatchTotal=0
+fi
+
+if [[ -z "$totalInMatchLog"  ]]
+	then totalInMatchLog=0
+fi
+
 echo $currentMatchTotal $totalInMatchLog
 
 #}

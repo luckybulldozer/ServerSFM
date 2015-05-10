@@ -9,6 +9,23 @@ LIBDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 #were the prefs file is
 PREFS_FILE=$LIBDIR/../prefs/server-sfm.prefs
 
+#sanity check to see if in an image directory 
+
+sanityCheck () {
+
+ls -1 | grep -i "JPG"  > /dev/null 2>&1
+if [ $? -ne 0 ]
+	then
+		echo ""
+		echoBad "Your current directory contains NO IMAGES!!! This software is potentially destructive; only operate on directories of images that you know are backed up somewhere else.  Please cd to another directory.  ServerSFM only works with images appended with .jpg or .JPG, not .jpeg or .JPEG or any other image formats."
+		echo ""
+		exit 1
+fi
+
+}
+
+
+
 ### echo functions for different colors etc.
 
 function echoGood () {
@@ -24,6 +41,12 @@ INPUT_TEXT=$1
 printf "\e[0;31m${INPUT_TEXT}\e[0m\n"
 }
 
+function echoAlert () {
+INPUT_TEXT=$1
+echo ""
+echo "$(tput setaf 0)$(tput setab 3)$INPUT_TEXT$(tput sgr 0)"
+
+}
 
 ### preferences functions for reading and setting preferences
 
@@ -135,7 +158,8 @@ host $IP | awk -F'pointer' '{print $2}' | sed 's/\.//'
 
 function pauseWarning () {
 
-echo "Hit `echoGood ENTER` to continue, or `echoBad CTRL-C` to exit"
+#echo "Hit `echoGood ENTER` to continue, or `echoBad CTRL-C` to exit"
+echoAlert "Hit ENTER to continue, or CTRL-C to exit"
 printf ">"
 read nothing
 }
@@ -148,38 +172,224 @@ ProgressBar () {
 COMMENT=$3
 COLUMNS=$(tput cols)
 ((COLUMNS--))
-CURRENT_POS=$1
-TOTAL=$2
+CURRENT_POS=${1%.*}
+TOTAL=${2%.*}
 
-if [[ $CURRENT_POS -gt 1 || $TOTAL -gt 1 ]]
-then
+if [ "$TOTAL" -gt 0 ] 
+then  
 
-	COLUMNS_FACTOR=$( echo "scale = 5 ; $COLUMNS / $TOTAL " |bc )
-	OUTPUT_POS=$( echo "scale = 5; $CURRENT_POS * $COLUMNS_FACTOR" | bc )
-	OUTPUT_POS=${OUTPUT_POS%.*}
-	((OUTPUT_POS++))
+	if [[ $CURRENT_POS -gt 1 || $TOTAL -gt 1 ]]
+	then
 
-	SUB_POS=$(( COLUMNS - OUTPUT_POS  ))
-	((SUB_POS++))
-	#echo $OUTPUT_POS $SUB_POS
-	if [[ "$OUTPUT_POS" -eq "0" || "$SUB_POS" -lt "1" ]]
-		then 
-			echo "### done ###"
-		else
-	#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
-			RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
-	#█░
-			PERCENT=$( echo "scale = 3; ( $OUTPUT_POS / $COLUMNS ) * 100" | bc )
-			PERCENT=${PERCENT%.*}
-		printf "$PERCENT %%\r"
+		COLUMNS_FACTOR=$( echo "scale = 5 ; $COLUMNS / $TOTAL " |bc )
+		OUTPUT_POS=$( echo "scale = 5; $CURRENT_POS * $COLUMNS_FACTOR" | bc )
+		OUTPUT_POS=${OUTPUT_POS%.*}
+		((OUTPUT_POS++))
+
+		SUB_POS=$(( COLUMNS - OUTPUT_POS  ))
+		((SUB_POS++))
+		#echo $OUTPUT_POS $SUB_POS
+		if [[ "$OUTPUT_POS" -eq "0" || "$SUB_POS" -lt "1" ]]
+			then 
+			:
+			#	echo "### done ###"
+			else
+		#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
+				RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
+		#█░
+#	echo Output Position : $OUTPUT_POS Sub Posistion $SUB_POS
+
+				PERCENT=$( echo "scale = 3; ( $OUTPUT_POS / $COLUMNS ) * 100" | bc )
+				PERCENT=${PERCENT%.*}
+			if [ -z $PERCENT ]
+			then
+				tput sgr 0
+				printf "0"			
+			fi
+			printf "$PERCENT %%\r"
+		fi
+		sleep .1
 	fi
-	sleep .1
 fi
 }
 
 RepeatChar () {
     seq  -f $1 -s '' $2
 }
+
+
+################# multiProgressBar ####################
+
+multiProgressBar () {
+
+#echo machines to divide : $# arg: $@
+#read nothing
+machines=$(( $# / 2 ))
+#echo "machines = $machines numArgs $# args $@"
+checkComment=$(( $# % 2 ))
+if [[ "$checkComment" -eq 1 ]]
+        then commentField=$1
+        #echo "comment is : $commentField"
+fi
+
+lineEntry=$(tput lines)
+((lineEntry--))
+lineEntry=$(( lineEntry - machines  ))
+lineEntry2=$((lineEntry + 2 ))
+
+#machines tputDiff=$(( lineEntry2 - lineEntry  ))
+for (( i = 1 ; i <= machines ; i++ ))
+        do
+                ((lineEntry--))
+                ((lineEntry2--))
+        done
+
+
+printf "\033[<${lineEntry}>;<0>f" # goto lineEntry 53
+#echo "                          $Comment"
+#echo 
+printf "\033[<${lineEntry2}>;<0>f" #goto lineEntry2 (55
+#printf "\033[<${lineEntry2}>;<0>f" #goto lineEntry2 (55
+
+count=0
+
+for var in $@
+        do
+            allVars[$count]=$var
+            ((count++))
+        done
+
+minorSum=0
+majorSum=0
+
+count=0
+for (( i = 0 ; i < $machines ; i++ ))
+        do
+                subCount=$(( count + 1 ))
+                ProgressBar ${allVars[$count]} ${allVars[$subCount]} ; echo
+                minor=${allVars[$count]}
+                major=${allVars[$subCount]}
+                minorSum=$((minorSum + minor))
+                majorSum=$((majorSum + major))
+                ((count++));((count++))
+        done
+
+if [[ "$majorSum" -ne 0 ]] 
+then 
+ProgressBar $minorSum $majorSum #; echo
+fi
+
+}
+
+# prob dont need this at the moment.
+getCursorPosition () {
+# based on a script from http://invisible-island.net/xterm/xterm.faq.html
+# thanks denniswilliamson.us
+exec < /dev/tty
+oldstty=$(stty -g)
+stty raw -echo min 0
+# on my system, the following line can be replaced by the line below it
+echo "\033[6n" > /dev/tty
+# tput u7 > /dev/tty    # when TERM=xterm (and relatives)
+IFS=';' read -r -d R -a pos
+stty $oldstty
+# change from one-based to zero based so they work with: tput cup $row $col
+row=$((${pos[0]:2} - 1))    # strip off the esc-[
+col=$((${pos[1]} - 1))
+
+echo $row 
+
+}
+
+
+### rm working dir case block
+
+function initRmCase () {
+
+echo ""
+echoBad "About to rm most NON jpeg files in $SOURCE_IMAGE_DIR."
+echoGood "(just keep only your jpegs in here, and you should still have a BACK UP!)"
+
+echoAlert "Hit ENTER to delete non-jpeg data / L to list / Q to quit"
+printf ">"
+read rmInitPrompt
+
+enter=`printf "\n"`
+
+rmInitPrompt=$( tr '[:upper:]' '[:lower:]' <<<"$rmInitPrompt" )
+case $rmInitPrompt in
+        l)
+                echoGood "Contents of current directory"
+                ls 
+                 
+		  initRmCase
+                ;;
+        q)
+                echo "Exiting..."
+                exit 1
+                ;;
+        $enter)
+		#echo "you hit the ENTER Key"
+		echo "Deleting everything in directory except JPGs"
+		;;
+	*)
+        	echo "Invalid choice"    
+		initRmCase
+esac
+}
+
+
+#######################################################
+
+function remoteRmCase () {
+
+REMOTE_CLIENT_TO_RM="$1"
+if [[ -z $REMOTE_CLIENT_TO_RM ]] 
+	then
+		echo "Exiting due to unset variable"
+		exit 1
+	fi
+
+enter=`printf "\n"`
+
+
+echoBad "About to delete ALL contents of remote directory $REMOTE_CLIENT_TO_RM"
+
+echoAlert "Hit ENTER to delete temp dir on $REMOTE_CLIENT_TO_RM / L to list / Q to quit"
+printf ">"
+read rmRemotePrompt
+
+
+
+rmRemotePrompt=$( tr '[:upper:]' '[:lower:]' <<<"$rmRemotePrompt" )
+case $rmRemotePrompt in
+        l)
+                ssh -i $SSH_KEY $SFM_USERNAME@$REMOTE_CLIENT_TO_RM "ls $JOB_LOCATION*" 
+                echo "Hit ENTER to continue." 
+		  remoteRmCase $REMOTE_CLIENT_TO_RM
+                ;;
+        q)
+                echo "Exiting..."
+                exit 1
+                ;;
+        $enter)
+				echo "Deleting everything in directory except JPGs"
+		;;
+	*)
+        	echo "Invalid choice"    
+		remoteRmCase $REMOTE_CLIENT_TO_RM
+		;;
+esac
+}
+
+
+
+#######################################################
+
+
+
+
+
 
 #### Match Total Test #########
 # 

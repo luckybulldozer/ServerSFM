@@ -11,6 +11,8 @@ source $LIBDIR/dsCommon.lib.sh
 source $LIBDIR/server-sfm.lib.sh
 
 #INIT ROUTINES
+#check in a directory that contains .jpg/.JPG data.  
+sanityCheck
 
 #inits local and intermachine variables for paths etc, needs to be turned on for most testing.
 initVars 
@@ -49,19 +51,13 @@ startSifts
 #90
 waitForSiftsToFinish
 
-echo END HERE?
-#read noout
 
 #100
 getInverseSifts
 
-echo END AT getInverseSifts
-#read nnout
+
 #110
 waitForSiftsToCopy
-
-echo END at waitForSiftsToCopy
-#read nouut
 
 # START MATCH ON SERVERS
 
@@ -77,7 +73,7 @@ waitForMatchesToExport
 #160
 combineMatch
 #170
-copyMatchesToRealServers
+copyMatchesToBackHomeToClients
 #copyMatchesToFakeServers
 #180
 
