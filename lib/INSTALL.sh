@@ -48,6 +48,14 @@ read nothing
 echo "" > $SERVER_WORKDIR/jobs/server/clients/clientlist.txt
 }
 
+function setupMainHost () {
+myIP=$((getMyIP))
+echoBad "Do you want the host you are executing this script from to be the main processing node too ( $myIP ) ? "
+echoPrompt "Hit enter to continue with $myIP, or enter a new IP address (new IP not implemented yet - ignore!)"
+read nothing
+editPrefs hostServerIp $myIP
+}
+
 function setupUsername () {
 USER_NAME=`whoami`
 echoGood "The installer will use \"$(echoBad `whoami`)\", this the username that logs into your servers."
@@ -122,7 +130,8 @@ SFM_USERNAME=`readPrefs username`
 				# sequence of below...
 				#ssh -q (quiet mode) $client ;
 				#ssh-keygen -R (remove from known_hosts) that host 
-				ssh  $i "ssh-keygen -R $i ; mkdir \$HOME/.ssh 2>/dev/null; chmod 700 \$HOME/.ssh; echo "$KEYCODE" >> \$HOME/.ssh/authorized_keys; chmod 644 \$HOME/.ssh/authorized_keys ; ssh-keygen -y -f \$HOME/.ssh/"$JUST_KEY_NAME" > \$HOME/.ssh/"$JUST_KEY_NAME.pub""  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working..."
+					#taken out... ssh-keygen -R $i ;
+				ssh  $i " mkdir \$HOME/.ssh 2>/dev/null; chmod 700 \$HOME/.ssh; echo "$KEYCODE" >> \$HOME/.ssh/authorized_keys; chmod 644 \$HOME/.ssh/authorized_keys ; ssh-keygen -y -f \$HOME/.ssh/"$JUST_KEY_NAME" > \$HOME/.ssh/"$JUST_KEY_NAME.pub""  && echoGood $host "ssh keys working." || echoBad $host "ssh keys not working..."
 				scp -i $SSH_KEY $SSH_KEY.pub $SFM_USERNAME@$i~/.ssh/ 			
 			done
 	# if we do

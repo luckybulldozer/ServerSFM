@@ -164,6 +164,14 @@ printf ">"
 read nothing
 }
 
+getMyIP() {
+    local _ip _line
+    while IFS=$': \t' read -a _line ;do
+        [ -z "${_line%inet}" ] &&
+           _ip=${_line[${#_line[1]}>4?1:2]} &&
+           [ "${_ip#127.0.0.1}" ] && echo $_ip && return 0
+      done< <(LANG=C /sbin/ifconfig)
+}
 
 #### progress bar ####
 
@@ -194,8 +202,8 @@ then
 			:
 			#	echo "### done ###"
 			else
-		#		RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
-				RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
+				RepeatChar "#" $OUTPUT_POS ; RepeatChar "-" $SUB_POS ; printf "\r"
+		#		RepeatChar "█" $OUTPUT_POS ; RepeatChar "░" $SUB_POS ; printf "\r"
 		#█░
 #	echo Output Position : $OUTPUT_POS Sub Posistion $SUB_POS
 
@@ -386,6 +394,17 @@ esac
 
 #######################################################
 
+### spinner - yeah i should move onto more important stuff!
+
+sp="/-\|"
+sc=0
+spin() {
+   printf "\b${sp:sc++:1}"
+   ((sc==${#sp})) && sc=0
+}
+endspin() {
+   printf "\r%s\n" "$@"
+}
 
 
 

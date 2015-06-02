@@ -120,7 +120,7 @@ initRmCase
 
 #once working should take a lot more general approach
 #$IMG_LOG_DIR/match*
-rm -fr  $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists/  $SOURCE_IMAGE_DIR/*.tar $SOURCE_IMAGE_DIR/benchmarkJob*
+rm -fr  $IMG_LOG_DIR/left_pair $IMG_LOG_DIR/right_pair $IMG_LOG_DIR/*clean_pair* $CLIENT_LIST_DIR $SOURCE_IMAGE_DIR/*sift* $SOURCE_IMAGE_DIR/match* $MATCH_LIST_DIR/.matchtmp.txt $SOURCE_IMAGE_DIR/got_sifts $SOURCE_IMAGE_DIR/*.mat $SOURCE_IMAGE_DIR/match* $SOURCE_IMAGE_DIR/*nvm* $SOURCE_IMAGE_DIR/siftlists/  $SOURCE_IMAGE_DIR/*.tar $SOURCE_IMAGE_DIR/benchmarkJob* $JOBS_COMPLETE/*
 echoGood "Done"
 }
 
@@ -350,6 +350,7 @@ DIR_SIFTS=`ls -1 $SOURCE_IMAGE_DIR/*.sift 2>/dev/null | wc -l`
 DIR_PEGS=`ls -1 $SOURCE_IMAGE_DIR/*.[jJ][pP][gG] | wc -l`
 DIR_PEGS=`printf %d $DIR_PEGS`
 #echo DIR_SIFTS= $DIR_SIFTS DIR_PEGS= $DIR_PEGS
+echo ""
 echoBad "Executing sift generation on clients for a total of $DIR_PEGS images"
 echoAlert "Waiting for sifts to get sent back to host..." 
 
@@ -513,12 +514,14 @@ do
 j=${BENCHMARK_SERVER[$count]}
 #echo "j = $j"   
         if [ "$low" -eq "0" ]
-                then low=$j
+                then 
+                	low=$j
                 fi  
 
         if [ $j -lt $low ]
                 then low=$j
                      lowIndex=$count
+                     fastestMachine=$j
         fi  
 ((count++))
 done
@@ -571,9 +574,14 @@ for i in "${BENCHMARK_SERVER[@]}"
 		pairsToMatch=${pairsToMatch%.*}
 		pairServer=${matchArray[count]}
 		
-		####		
-		perC="%"
-		echoGood "Server : $pairServer, Share  : $sharePercent%%  : Pairs to Match : $pairsToMatch "
+		if [ $i == $fastestMachine ]
+		then 
+			isFastest="Fastest GPU/CPU for match"
+		else
+			isFastest=""
+		fi		
+		
+		echoGood "Server : $pairServer, Share  : $sharePercent%%  : Pairs to Match : $pairsToMatch, $isFastest"
 ((count++))
 done
 
@@ -724,7 +732,7 @@ done
 
 								waitForMatchesToExport () {
 echoAlert "Starting match across servers, bottom progress bar indicates total progress"
-echo ""
+printf "Initializing...\n" ; 
 for (( i = 0 ; i < $NUMBER_OF_SERVERS ; i++ )) ;
 	do 
 		echo ""
@@ -787,7 +795,8 @@ multiProgressBar ${multiProgArg[@]}
   DOES_MAT_EXIST=`ls -1 $SOURCE_IMAGE_DIR/matches_out* 2>/dev/null | wc -l`
     sleep 1
   done
-  echoGood "All Match Exports at host exist"
+  echo ""
+  echoGood "All Match Export lists at host exist."
 }
 
 
@@ -801,11 +810,19 @@ multiProgressBar ${multiProgArg[@]}
 								   #~ █    ▒▓  ▓█ ▒█  █▒
 								 #~ █████   ▓███   ▓██▓ 
 combineMatch () {
-
+count=1
+totalMatchToCombine=`ls -1 $SOURCE_IMAGE_DIR/matches_out* | wc -l | awk '{print $1}'`
 for i in `ls -1 $SOURCE_IMAGE_DIR/matches_out*` ; do
-	echo $i
+	#echo $i
 	sed "s/.*\///" $i > `basename $i .txt`_local_path.txt
-	VisualSFM sfm+skip+import+skipsfm . out.nvm `basename $i .txt`_local_path.txt
+	echoGood "Combining Matches: $count of $totalMatchToCombine..."
+	VisualSFM sfm+skip+import+skipsfm . out.nvm `basename $i .txt`_local_path.txt > /dev/null 2>&1
+	if [ $? == 0 ] 
+		((count++))
+		then echoGood "Combined." 
+	else 
+		echoBad "Failed to combine" 
+	fi 
 done
 #VisualSFM sfm+exportp [input] matches.txt
 #VisualSFM sfm+skip+import+skipsfm [full_image_list] [output.nvm] matches1.txt
@@ -834,14 +851,15 @@ done
 
 
 #for i in `cat $SERVERS_CLIENT_LIST`
-
+echo""
 for i in "${copyMatchesToServers[@]}"
-do 
-scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR/task_processing
-#     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
-#	do
-#	scp -i dloud.pem $j $i:/media/ephemeral
-#	done
+	do 
+		scp -i $SSH_KEY *.mat $i:$CLIENT_WORKDIR/task_processing > /dev/null 2>&1
+		echoGood "Copied matches back to client : $i"
+	#     for j in `ls -1 $SOURCE_IMAGE_DIR/*.mat`
+	#	do
+	#	scp -i dloud.pem $j $i:/media/ephemeral
+	#	done
 done
 }
 
@@ -862,11 +880,35 @@ done
 startLocalSFM ()
 {
 
-cd $SOURCE_IMAGE_DIR
-time VisualSFM sfm+nomatch+cmvs . $PROJECT_NAME
-# this ideally would leave us with 00/bundlerd.out for each dir, this is not the case as yet... or we need an nvm>bundler solution
-cd -
-echo "Done SFM"
+hostServerIp=$(readPrefs hostServerIp)
+## change the job location... mission I'm not ready for.
+
+jobToDo=$PROJECT_NAME"_sfmJobLocal.sh"
+#make .sh job
+echo "cd $SOURCE_IMAGE_DIR" > $JOBS_SET/$jobToDo
+echo "time VisualSFM sfm+nomatch+cmvs . $PROJECT_NAME" >> $JOBS_SET/$jobToDo
+
+chmod +x $JOBS_SET/$jobToDo
+scp -i $SSH_KEY $JOBS_SET/$jobToDo $hostServerIp:$JOBS_SETUP
+	 
+ssh -i $SSH_KEY $SFM_USERNAME@$hostServerIp "RFILE=$jobToDo ; mv $JOBS_SETUP/\$RFILE $JOBS_PENDING/\$RFILE"
+mv $JOBS_SET/$jobToDo $JOBS_DONE/
+
+echoBad "Waiting for SFM to finish..."
+while [ ! -f $JOBS_COMPLETE/$jobToDo ]
+do
+spin
+done
+endspin
+echoGood "Done SFM"
+echo ""
+
+
+## old way when done locally
+# cd $SOURCE_IMAGE_DIR 
+# time VisualSFM sfm+nomatch+cmvs . $PROJECT_NAME
+#cd -
+
 }
 
 copyCMVSDirToServers () {
@@ -879,10 +921,10 @@ for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do
 done
 
 
-echo "Tarring CMVS dirs"
-echo "I am in directory..."  $PWD  "-- end PWD"
+echoGood "Tarring CMVS dirs"
+#echo "I am in directory..."  $PWD  "-- end PWD"
 
-echo $CMVS_NAME
+#echo $CMVS_NAME
 
 
 tar cf cmvs.tar $CMVS_NAME
@@ -891,6 +933,7 @@ tar cf cmvs.tar $CMVS_NAME
 count=0
 for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do 
 	copyCMVSDirToServers[$count]=$i
+	echoGood "Copying CMVS data to: $i"
 	scp -i $SSH_KEY cmvs.tar $i:$CLIENT_IMAGE_DIR &
 	((count++))
 done
@@ -908,8 +951,7 @@ for i in `ls -1 $HAVE_LAUNCHED_DIR` ; do
 #do
 			CURRENT_SERVER=${copyCMVSDirToServers[$count]}
 			#CURRENT_SERVER=`sed -n "$count"p $SERVERS_CLIENT_LIST` 
-			echo server $CURRENT_SERVER number $i
-
+			#echo server $CURRENT_SERVER number $i
 			#scp -i $SSH_KEY $SOURCE_IMAGE_DIR/siftlists/"$i"_siftlist.txt $CURRENT_SERVER:$CLIENT_IMAGE_DIR
 
 			ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "cd $CLIENT_IMAGE_DIR ; tar xf $CLIENT_IMAGE_DIR/cmvs.tar &"
@@ -919,12 +961,13 @@ done
 }
 
 determinePMVS_JOBS () {
-echo "in function determinePMVS_JOBS"
+
 pmvsCount=0 
+
 for i in `ls -1 $CMVS_NAME` 
 	do 
 	PMVS_DIR[$pmvsCount]="$i"
-	echo "PMVS_DIR #$count ="${PMVS_DIR[$pmvsCount]}
+	#echo "PMVS_DIR #$count ="${PMVS_DIR[$pmvsCount]}
 	((pmvsCount++))
 done
 
@@ -936,12 +979,9 @@ pmvsJobCount=0
 # loop through each 00/ 01/ ... as from array contents
 for i in "${PMVS_DIR[@]}"
 	do
-  	# this is weird, both are the same so don't need to display!
-  	echo "key  : $i"
-  	echo "value: ${PMVS_DIR[$i]}"
+
 	#get a value for the directory name eg, yoursfm.nvm.cmvs/00... 
 	currentCMVSDIR=$CMVS_NAME/$(printf %02d ${PMVS_DIR[$i]})
-	echo "CD is $currentCMVSDIR"
 		
 		#now we go through each 00/ and 01 etc and make a job script
 		for j in `ls -1 $currentCMVSDIR/option*` ; do 
@@ -949,8 +989,7 @@ for i in "${PMVS_DIR[@]}"
                  	padJobNumber=$(printf %04d $pmvsJobCount)
 			jobNamePrefix=${j##*/}
 			currentClusterOptionPLY="pmvs_job_"$i"_"$jobNamePrefix"_"$padJobNumber".sh"
-			echo "Filename for Job is: $currentClusterOptionPLY"
-			echo "CMVS NAME is.... $CMVS_NAME"
+			echoGood "Created pmvs task : $currentClusterOptionPLY"
 #generate pmvs job script
 cat <<EOF > $JOBS_SET/$currentClusterOptionPLY
 #!/bin/bash
@@ -963,9 +1002,6 @@ scp -i $SSH_KEY $i/models/${j##*/}.ply $SFM_USERNAME@$MASTER_SERVER:$SOURCE_IMAG
 EOF
 			chmod +x $JOBS_SET/$currentClusterOptionPLY
 			((pmvsJobCount++))
-			echo ""
-			echo "***********************"
-			echo ""
 		done
 		
 
@@ -974,52 +1010,77 @@ EOF
 #       ssh -i $SSH_KEY $SFM_USERNAME@$CURRENT_SERVER "RFILE=$IN_FILE 
 #       mv $JOBS_SETUP\$RFILE $JOBS_PENDING/\$RFILE"
 #       mv $JOBS_SET/"$i"_sift_JOB.sh $JOBS_DONE/
-	
 
-
-	
-
-	echo "End of enterPMVS_Dirs Loop $i"
 	done
 
 }
 
 
 startPMVS_Sender () {
-echo "in Function PMVS Sender"
-# jobs from launch script need to send out 
-
-while true
- do
-	printf "Distributing PMVS Jobs...\n"
-	pmvsJobsToDo=`ls -1 $JOBS_SET/pmvs_job* | wc -l`
-	echo "pmvsJobsToDo = $pmvsJobsToDo"
-		while [ "$pmvsJobsToDo" -gt 0 ]
-		do
-			printf "attempting to find a server available for pmvs job\n"
+echoGood "Beginning the PMVS job sender"
+	
+pmvsJobsToDo=1
+while [ "$pmvsJobsToDo" -gt 0 ]
+	do
+		count=0 
+		   ### each while loop start by finding what's in the JOBS_SET directory, populate an array
+		   for i in `ls -1 $JOBS_SET` ; do
+				echo $i | grep pmvs_job
+				if [ "$?" == 0 ]
+				   then
+					   pmvsJobs[$count]=$i
+					   	
+					   #echo "Added ${pmvsJobs[$count]}, $i"
+					   ((count++))
+				  
+				   fi
+		   done
+		   
+#			echo "array contents: echo ${pmvsJobs[@]}"
+		   
+			#from that array, 
+			# get the number of jobs to do
+			pmvsJobsToDo="${#pmvsJobs[@]}"
+			pmvsJobChoice="${pmvsJobs[0]}"
+	
+#			echoBad "pmvsJobChoice:  $pmvsJobChoice Number of jobs: $pmvsJobsToDo"
+			echoGood "Number of jobs in cue is : $pmvsJobsToDo"
+			echoBad "Attempting to find a server available for pmvs job."
 			firstMachineOnTheRank=`ls -1 $IDLE_DIR | head -1`
-				if [ -z "$firstMachineOnTheRank" ] 
-					then
-						echo "Sorry, no machine available, please wait"
-					else
-						echo "Job will be sent out to $firstMachineOnTheRank"
-						pmvsJobChoice=`ls -1 $JOBS_SET/pmvs_job* | head -1`
-						if [[ -z "$pmvsJobChoice" ]] 
-						then
-							echo "All PMVS Jobs Done=]"
-							exit 0
-						else
-							echo "Choosing $pmvsJobChoice to send to $firstMachineOnTheRank"
-							scp -i $SSH_KEY $pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:$JOBS_PENDING/
-							mv $pmvsJobChoice $JOBS_COMPLETE/
-						fi
-				fi
-		sleep 1
-		done
- sleep 1
-done
-	 	
+#			echo Rank = $firstMachineOnTheRank
+			if [ "$pmvsJobsToDo" -gt 0 ]
+			then
+			
+			
+			if [ -z "$firstMachineOnTheRank" ] 
+				then
+					echoBad "Sorry, no machine available, please wait"
+				else
+#					echoGood "Job will be sent out to $firstMachineOnTheRank"
+					scp -i $SSH_KEY $JOBS_SET/$pmvsJobChoice $SFM_USERNAME@$firstMachineOnTheRank:$JOBS_PENDING/
+#					echoGood "Just sent $pmvsJobChoice to send to $firstMachineOnTheRank"
+					mv $JOBS_SET/$pmvsJobChoice $JOBS_DONE/
+			fi
+			fi
+		   for i in `ls -1 $JOBS_SET` ; do
+				echo $i | grep pmvs_job
+				if [ "$?" != 0 ]
+				   then
+	   		echoGood "All pmvs jobs have launched.  Waiting for them to finish."
+	   		break
+				   fi
+			
+		   done
 
+			unset pmvsJobs
+#			unset pmvsJobsToDo
+# 		sleep 1
+# 		done
+	sleep 1
+done
+	 
+echoGood "All jobs sent, waiting to finish"
+						
 
 #while jobs gt 0; 
 #do 
